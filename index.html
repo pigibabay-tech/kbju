@@ -18,6 +18,7 @@
             --fat: #f59e0b;
             --carbs: #10b981;
             --danger: #ef4444;
+            --warning: #eab308;
             --success: #22c55e;
             --border: #26354d;
             --input-bg: #0f172a;
@@ -35,6 +36,7 @@
             --fat: #d97706;
             --carbs: #059669;
             --danger: #dc2626;
+            --warning: #ca8a04;
             --success: #16a34a;
             --border: #e2e8f0;
             --input-bg: #f8fafc;
@@ -107,18 +109,30 @@
             align-items: center;
             gap: 6px;
             font-size: 0.76rem;
-            padding: 4px 10px;
+            padding: 5px 11px;
             border-radius: 99px;
-            background: rgba(56, 189, 248, 0.12);
-            color: var(--accent);
-            border: 1px solid rgba(56, 189, 248, 0.3);
+            background: rgba(148, 163, 184, 0.12);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
             font-weight: 600;
         }
 
         .status-badge.online {
-            background: rgba(34, 197, 94, 0.12);
+            background: rgba(34, 197, 94, 0.14);
             color: var(--success);
-            border-color: rgba(34, 197, 94, 0.3);
+            border-color: rgba(34, 197, 94, 0.35);
+        }
+
+        .status-badge.syncing {
+            background: rgba(234, 179, 8, 0.14);
+            color: var(--warning);
+            border-color: rgba(234, 179, 8, 0.35);
+        }
+
+        .status-badge.error {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+            border-color: rgba(239, 68, 68, 0.4);
         }
 
         .top-controls {
@@ -387,12 +401,15 @@
             gap: 6px;
             margin-bottom: 14px;
             flex-wrap: wrap;
-            max-height: 105px;
+            max-height: 110px;
             overflow-y: auto;
             padding: 2px;
         }
 
         .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
             background: var(--input-bg);
             border: 1px solid var(--border);
             color: var(--text-muted);
@@ -400,6 +417,7 @@
             border-radius: 16px;
             font-size: 0.76rem;
             cursor: pointer;
+            user-select: none;
         }
 
         .chip:hover {
@@ -410,6 +428,17 @@
         .chip.custom {
             border-color: var(--fat);
             color: var(--fat);
+        }
+
+        .chip-del {
+            font-weight: 700;
+            padding-left: 3px;
+            opacity: 0.75;
+        }
+
+        .chip-del:hover {
+            color: var(--danger);
+            opacity: 1;
         }
 
         /* Форма добавления еды */
@@ -461,18 +490,6 @@
         }
 
         .btn:hover { background: var(--accent-hover); }
-
-        .btn-google {
-            background: #ffffff;
-            color: #0f172a;
-            border: 1px solid #cbd5e1;
-            width: 100%;
-            padding: 10px;
-            font-size: 0.9rem;
-            margin-bottom: 14px;
-        }
-
-        .btn-google:hover { background: #f1f5f9; }
 
         .btn-outline {
             background: transparent;
@@ -526,7 +543,7 @@
         }
 
         .inline-weight {
-            width: 60px;
+            width: 62px;
             padding: 4px;
             font-size: 0.82rem;
             text-align: center;
@@ -556,7 +573,7 @@
         .modal-backdrop {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.72);
             backdrop-filter: blur(3px);
             display: none;
             align-items: center;
@@ -585,14 +602,6 @@
             margin-bottom: 14px;
         }
 
-        .divider {
-            text-align: center;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin: 12px 0;
-            position: relative;
-        }
-
         .toast {
             position: fixed;
             bottom: 18px;
@@ -607,6 +616,7 @@
             box-shadow: 0 8px 20px rgba(0,0,0,0.35);
             display: none;
             z-index: 1000;
+            max-width: 340px;
         }
     </style>
 </head>
@@ -617,7 +627,7 @@
     <header class="topbar">
         <div class="brand">
             <h1>⚡ NutriCloud PRO</h1>
-            <span class="status-badge" id="authBadge">Локальный режим</span>
+            <span class="status-badge" id="authBadge">Локальный режим (без входа)</span>
         </div>
 
         <div class="top-controls">
@@ -627,11 +637,12 @@
                 <button class="btn btn-outline" style="padding: 4px 8px;" onclick="shiftDate(1)">▶</button>
             </div>
 
-            <button class="btn" id="loginBtn" onclick="openAuthModal()">👤 Войти в аккаунт</button>
+            <button class="btn" id="loginBtn" onclick="openAuthModal()">👤 Вход / Регистрация</button>
+            <button class="btn btn-outline" id="syncNowBtn" style="display:none;" onclick="manualSync()" title="Принудительно синхронизировать с облаком">🔄 Облако</button>
             <button class="btn btn-outline btn-danger" id="logoutBtn" style="display:none;" onclick="signOutUser()">Выйти</button>
 
-            <button class="btn btn-outline" onclick="exportData()" title="Скачать JSON">⬇</button>
-            <label class="btn btn-outline" style="margin:0; cursor:pointer;" title="Загрузить JSON">
+            <button class="btn btn-outline" onclick="exportData()" title="Скачать резервную копию JSON">⬇</button>
+            <label class="btn btn-outline" style="margin:0; cursor:pointer;" title="Загрузить резервную копию JSON">
                 ⬆
                 <input type="file" accept=".json" style="display:none" onchange="importData(event)">
             </label>
@@ -650,11 +661,11 @@
                 <label>Пол</label>
                 <div class="radio-group">
                     <label>
-                        <input type="radio" name="gender" value="male" checked onchange="calculateTarget()">
+                        <input type="radio" name="gender" value="male" checked onchange="onUserParameterChange()">
                         <span>Мужской</span>
                     </label>
                     <label>
-                        <input type="radio" name="gender" value="female" onchange="calculateTarget()">
+                        <input type="radio" name="gender" value="female" onchange="onUserParameterChange()">
                         <span>Женский</span>
                     </label>
                 </div>
@@ -662,27 +673,27 @@
 
             <div class="form-group">
                 <label>Возраст (лет)</label>
-                <input type="number" id="age" value="30" min="14" max="100" oninput="calculateTarget()">
+                <input type="number" id="age" value="30" min="14" max="100" oninput="onUserParameterChange()">
             </div>
 
             <div class="form-group">
                 <label>Рост (см)</label>
-                <input type="number" id="height" value="180" min="120" max="230" oninput="calculateTarget()">
+                <input type="number" id="height" value="180" min="120" max="230" oninput="onUserParameterChange()">
             </div>
 
             <div class="form-group">
                 <label>Вес (кг)</label>
-                <input type="number" id="weight" value="80" min="35" max="250" step="0.5" oninput="calculateTarget()">
+                <input type="number" id="weight" value="80" min="35" max="250" step="0.5" oninput="onUserParameterChange()">
             </div>
 
             <div class="form-group">
                 <label>% жира (опционально)</label>
-                <input type="number" id="bodyfat" placeholder="Напр. 18" min="4" max="60" oninput="calculateTarget()">
+                <input type="number" id="bodyfat" placeholder="Напр. 18" min="4" max="60" oninput="onUserParameterChange()">
             </div>
 
             <div class="form-group full">
                 <label>Уровень физической активности</label>
-                <select id="activity" onchange="calculateTarget()">
+                <select id="activity" onchange="onUserParameterChange()">
                     <option value="1.2">Сидячий образ жизни (минимум движений)</option>
                     <option value="1.375" selected>Лёгкая активность (1–3 тренировки в нед.)</option>
                     <option value="1.55">Средняя активность (3–5 тренировок в нед.)</option>
@@ -693,7 +704,7 @@
 
             <div class="form-group">
                 <label>Цель</label>
-                <select id="goal" onchange="calculateTarget()">
+                <select id="goal" onchange="onUserParameterChange()">
                     <option value="-20">Быстрое снижение (-20%)</option>
                     <option value="-15">Плавное снижение (-15%)</option>
                     <option value="0" selected>Поддержание (0%)</option>
@@ -704,7 +715,7 @@
 
             <div class="form-group">
                 <label>Схема БЖУ</label>
-                <select id="macroProfile" onchange="calculateTarget()">
+                <select id="macroProfile" onchange="onUserParameterChange()">
                     <option value="balanced" selected>По весу (Б: 1.8г, Ж: 1г)</option>
                     <option value="highprotein">Высокобелковая (Б: 2.2г)</option>
                     <option value="lowcarb">Низкоуглеводная (35/40/25)</option>
@@ -857,31 +868,24 @@
 </div>
 
 <!-- МОДАЛЬНОЕ ОКНО ВХОДА В АККАУНТ -->
-<div class="modal-backdrop" id="authModal">
+<div class="modal-backdrop" id="authModal" onclick="if(event.target===this)closeAuthModal()">
     <div class="modal">
-        <h3>Вход в личный аккаунт</h3>
-        <p>Войдите через Google или по Email, чтобы ваш рацион автоматически синхронизировался на всех устройствах.</p>
-
-        <button class="btn btn-google" onclick="signInWithGoogle()">
-            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-            Войти через Google
-        </button>
-
-        <div class="divider">— или по Email и паролю —</div>
+        <h3>Облачный аккаунт</h3>
+        <p>Войдите под своим Email и паролем на компьютере и телефоне — все ваши параметры, продукты и дневник питания будут синхронизироваться через облако в реальном времени.</p>
 
         <div class="form-group" style="margin-bottom: 10px;">
             <label>Ваш Email</label>
-            <input type="email" id="authEmail" placeholder="name@example.com">
+            <input type="email" id="authEmail" placeholder="name@example.com" autocomplete="email">
         </div>
         <div class="form-group" style="margin-bottom: 16px;">
             <label>Пароль (минимум 6 символов)</label>
-            <input type="password" id="authPass" placeholder="••••••••">
+            <input type="password" id="authPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')handleEmailAuth('login')">
         </div>
 
         <div style="display:flex; gap:8px; justify-content:space-between; flex-wrap:wrap;">
-            <button class="btn btn-outline" onclick="closeAuthModal()">Отмена</button>
+            <button class="btn btn-outline" onclick="closeAuthModal()">Закрыть</button>
             <div style="display:flex; gap:6px;">
-                <button class="btn btn-outline" onclick="handleEmailAuth('signup')">Регистрация</button>
+                <button class="btn btn-outline" onclick="handleEmailAuth('signup')">Создать аккаунт</button>
                 <button class="btn" onclick="handleEmailAuth('login')">Войти</button>
             </div>
         </div>
@@ -891,12 +895,48 @@
 <div class="toast" id="toast"></div>
 
 <script>
+    // 1. БЕЗОПАСНАЯ РАБОТА С LOCALSTORAGE
+    const storage = {
+        get(key, fallback) {
+            try {
+                const raw = localStorage.getItem(key);
+                return raw ? JSON.parse(raw) : fallback;
+            } catch (e) {
+                return fallback;
+            }
+        },
+        set(key, val) {
+            try {
+                localStorage.setItem(key, JSON.stringify(val));
+            } catch (e) {}
+        },
+        remove(key) {
+            try {
+                localStorage.removeItem(key);
+            } catch (e) {}
+        }
+    };
+
+    // 2. ИНИЦИАЛИЗАЦИЯ SUPABASE С ЗАЩИТОЙ ОТ БЛОКИРОВЩИКОВ
     const SUPABASE_URL = "https://yujosdapctfjqenmkdnh.supabase.co";
     const SUPABASE_KEY = "sb_publishable_XHpRJv-NKJmnjtyTnAflLA_QCU3kJF5";
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let sb = null;
+    try {
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+            sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                auth: { persistSession: true, autoRefreshToken: true }
+            });
+        }
+    } catch (err) {
+        console.error('Supabase init failed:', err);
+    }
 
     let currentUser = null;
     let syncTimer = null;
+    let isInitialCloudPullCompleted = false;
+    let isPushing = false;
+    let isPulling = false;
+    let lastHandledUserId = null;
 
     const defaultPresets = [
         { name: "Куриная грудка (филе)", p: 23.6, f: 1.9, c: 0.4, w: 150 },
@@ -917,9 +957,15 @@
         { name: "Протеин сывороточный", p: 78.0, f: 5.0, c: 6.0, w: 30 }
     ];
 
-    let customPresets = JSON.parse(localStorage.getItem('kbju_custom_presets') || '[]');
-    let allDays = JSON.parse(localStorage.getItem('kbju_days_v2') || '{}');
-    let currentDate = new Date().toISOString().split('T')[0];
+    function getLocalTodayStr() {
+        const now = new Date();
+        const offsetMs = now.getTimezoneOffset() * 60000;
+        return new Date(now.getTime() - offsetMs).toISOString().split('T')[0];
+    }
+
+    let customPresets = storage.get('kbju_custom_presets', []);
+    let allDays = storage.get('kbju_days_v2', {});
+    let currentDate = getLocalTodayStr();
     let currentMealFilter = 'all';
     let targetMacros = { kcal: 2000, p: 140, f: 80, c: 200, water: 2640 };
 
@@ -934,11 +980,18 @@
         t.textContent = msg;
         t.style.display = 'block';
         clearTimeout(window._toastTimer);
-        window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3000);
+        window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3600);
     }
 
-    // АВТОРИЗАЦИЯ (GOOGLE + EMAIL/ПАРОЛЬ)
+    function setBadgeStatus(type, text) {
+        const badge = document.getElementById('authBadge');
+        badge.className = 'status-badge ' + (type || '');
+        badge.textContent = text;
+    }
+
+    // 3. АВТОРИЗАЦИЯ И УПРАВЛЕНИЕ СЕССИЕЙ
     function openAuthModal() {
+        if (!sb) return showToast('Библиотека облака заблокирована браузером (проверьте AdBlock/Shields)');
         document.getElementById('authModal').style.display = 'flex';
     }
 
@@ -946,87 +999,119 @@
         document.getElementById('authModal').style.display = 'none';
     }
 
-    async function signInWithGoogle() {
-        const redirectUrl = window.location.origin + window.location.pathname;
-        const { error } = await sb.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo: redirectUrl }
-        });
-        if (error) showToast('Ошибка Google входа: ' + error.message);
-    }
-
     async function handleEmailAuth(mode) {
+        if (!sb) return showToast('Облако недоступно');
         const email = document.getElementById('authEmail').value.trim();
         const password = document.getElementById('authPass').value;
         if (!email || password.length < 6) {
-            return showToast('Введите корректный Email и пароль (от 6 символов)');
+            return showToast('Введите корректный Email и пароль (минимум 6 символов)');
         }
 
         if (mode === 'signup') {
             const { data, error } = await sb.auth.signUp({ email, password });
-            if (error) return showToast('Ошибка: ' + error.message);
+            if (error) return showToast('Ошибка регистрации: ' + error.message);
             closeAuthModal();
-            showToast('Аккаунт создан! Вы вошли в систему.');
+            if (data?.session) {
+                showToast('Аккаунт создан и подключён к облаку!');
+            } else {
+                showToast('Аккаунт создан! Отключите Confirm Email в Supabase или подтвердите почту.');
+            }
         } else {
-            const { data, error } = await sb.auth.signInWithPassword({ email, password });
-            if (error) return showToast('Неверный логин или пароль');
+            const { error } = await sb.auth.signInWithPassword({ email, password });
+            if (error) return showToast('Ошибка входа: неверный Email или пароль');
             closeAuthModal();
-            showToast('Вы успешно вошли в аккаунт!');
+            showToast('Вход выполнен! Синхронизируем данные...');
         }
     }
 
     async function signOutUser() {
-        await sb.auth.signOut();
+        clearTimeout(syncTimer);
+        isInitialCloudPullCompleted = false;
+        lastHandledUserId = null;
+        if (sb) await sb.auth.signOut();
         currentUser = null;
-        updateAuthUI();
+
+        // Очищаем локальный кэш при выходе, чтобы данные аккаунта не смешивались
+        customPresets = [];
+        allDays = {};
+        storage.remove('kbju_custom_presets');
+        storage.remove('kbju_days_v2');
+
+        updateAuthButtons();
+        renderPresets();
+        updateDiaryUI();
+        setBadgeStatus('', 'Локальный режим (без входа)');
         showToast('Вы вышли из аккаунта');
     }
 
-    function updateAuthUI() {
-        const badge = document.getElementById('authBadge');
+    function updateAuthButtons() {
         const loginBtn = document.getElementById('loginBtn');
         const logoutBtn = document.getElementById('logoutBtn');
+        const syncNowBtn = document.getElementById('syncNowBtn');
 
         if (currentUser) {
-            badge.className = 'status-badge online';
-            badge.textContent = '☁️ ' + (currentUser.email || 'Аккаунт подключён');
             loginBtn.style.display = 'none';
             logoutBtn.style.display = 'inline-flex';
+            syncNowBtn.style.display = 'inline-flex';
         } else {
-            badge.className = 'status-badge';
-            badge.textContent = 'Локальный режим';
             loginBtn.style.display = 'inline-flex';
             logoutBtn.style.display = 'none';
+            syncNowBtn.style.display = 'none';
         }
     }
 
-    // СИНХРОНИЗАЦИЯ С ТАБЛИЦЕЙ SUPABASE
-    function scheduleCloudPush() {
-        if (!currentUser) return;
+    // 4. СТРОГАЯ СИНХРОНИЗАЦИЯ С SUPABASE БЕЗ ГОНКИ СОСТОЯНИЙ
+    function scheduleCloudPush(immediate = false) {
+        if (!sb || !currentUser || !isInitialCloudPullCompleted) return;
         clearTimeout(syncTimer);
-        syncTimer = setTimeout(() => pushToCloud(), 800);
+        setBadgeStatus('syncing', '⏳ Сохранение в облако...');
+        if (immediate) {
+            pushToCloud(false);
+        } else {
+            syncTimer = setTimeout(() => pushToCloud(false), 450);
+        }
     }
 
-    async function pushToCloud() {
-        if (!currentUser) return;
+    async function pushToCloud(isManual = false) {
+        if (!sb || !currentUser || !isInitialCloudPullCompleted) return;
+        isPushing = true;
         try {
+            setBadgeStatus('syncing', '⏳ Отправка в облако...');
+            const currentSettings = getCurrentInputsAsSettings();
+            storage.set('kbju_settings', currentSettings);
+
             const payload = {
                 user_id: currentUser.id,
                 email: currentUser.email,
-                settings: JSON.parse(localStorage.getItem('kbju_settings') || '{}'),
+                settings: currentSettings,
                 custom_presets: customPresets,
                 all_days: allDays,
                 updated_at: new Date().toISOString()
             };
-            await sb.from('nutri_profiles').upsert(payload, { onConflict: 'user_id' });
+
+            const { error } = await sb
+                .from('nutri_profiles')
+                .upsert(payload, { onConflict: 'user_id' });
+
+            if (error) throw error;
+
+            const timeStr = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            setBadgeStatus('online', `☁️ ${currentUser.email} • сохранено (${timeStr})`);
+            if (isManual) showToast('Все данные сохранены в облаке!');
         } catch (e) {
-            console.error('Ошибка сохранения в облако:', e);
+            console.error('Supabase push error:', e);
+            setBadgeStatus('error', '❌ Ошибка БД (выполните SQL-скрипт в Supabase)');
+            showToast('Ошибка облака: ' + (e.message || 'проверьте таблицу nutri_profiles'));
+        } finally {
+            isPushing = false;
         }
     }
 
-    async function pullFromCloud() {
-        if (!currentUser) return;
+    async function pullFromCloud(isManual = false) {
+        if (!sb || !currentUser || isPushing || isPulling) return;
+        isPulling = true;
         try {
+            setBadgeStatus('syncing', '⏳ Загрузка профиля из облака...');
             const { data, error } = await sb
                 .from('nutri_profiles')
                 .select('*')
@@ -1036,45 +1121,87 @@
             if (error) throw error;
 
             if (data) {
-                if (data.settings && Object.keys(data.settings).length > 0) {
-                    localStorage.setItem('kbju_settings', JSON.stringify(data.settings));
+                // Строгое применение облачного состояния (чтобы удаление на одном устройстве удаляло и на другом)
+                if (data.settings && typeof data.settings === 'object' && Object.keys(data.settings).length > 0) {
+                    storage.set('kbju_settings', data.settings);
+                    applySavedSettingsToInputs();
                 }
+
                 if (Array.isArray(data.custom_presets)) {
                     customPresets = data.custom_presets;
-                    localStorage.setItem('kbju_custom_presets', JSON.stringify(customPresets));
+                    storage.set('kbju_custom_presets', customPresets);
                 }
+
                 if (data.all_days && typeof data.all_days === 'object') {
                     allDays = data.all_days;
-                    localStorage.setItem('kbju_days_v2', JSON.stringify(allDays));
+                    storage.set('kbju_days_v2', allDays);
                 }
-                applySavedSettingsToInputs();
+
+                isInitialCloudPullCompleted = true;
                 renderPresets();
                 calculateTarget(true);
+
+                const timeStr = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                setBadgeStatus('online', `☁️ ${currentUser.email} • синхронизировано (${timeStr})`);
+                if (isManual) showToast('Данные из облака загружены!');
             } else {
-                await pushToCloud();
+                // Если это самый первый вход нового аккаунта — отправляем текущие данные в облако
+                isInitialCloudPullCompleted = true;
+                await pushToCloud(false);
             }
         } catch (e) {
-            console.error('Ошибка загрузки из облака:', e);
+            console.error('Supabase pull error:', e);
+            setBadgeStatus('error', '❌ Ошибка БД (выполните SQL-скрипт в Supabase)');
+            showToast('Ошибка чтения облака: ' + (e.message || 'проверьте таблицу nutri_profiles'));
+        } finally {
+            isPulling = false;
         }
     }
 
-    sb.auth.onAuthStateChange((event, session) => {
-        currentUser = session?.user || null;
-        updateAuthUI();
-        if (currentUser && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-            pullFromCloud();
+    async function manualSync() {
+        if (!currentUser) return openAuthModal();
+        await pullFromCloud(true);
+    }
+
+    if (sb) {
+        sb.auth.onAuthStateChange((event, session) => {
+            currentUser = session?.user || null;
+            updateAuthButtons();
+
+            if (currentUser) {
+                if (currentUser.id !== lastHandledUserId || event === 'SIGNED_IN') {
+                    lastHandledUserId = currentUser.id;
+                    isInitialCloudPullCompleted = false;
+                    pullFromCloud(false);
+                }
+            } else {
+                lastHandledUserId = null;
+                isInitialCloudPullCompleted = false;
+                setBadgeStatus('', 'Локальный режим (без входа)');
+            }
+        });
+    }
+
+    // Автообновление данных при переключении между устройствами/вкладками
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && currentUser && isInitialCloudPullCompleted && !isPushing) {
+            pullFromCloud(false);
         }
     });
 
-    // ЛОГИКА КАЛЬКУЛЯТОРА И ДНЕВНИКА
+    // 5. ЛОГИКА КАЛЬКУЛЯТОРА И ДНЕВНИКА
     function getDayData(dateStr) {
         if (!allDays[dateStr]) allDays[dateStr] = { items: [], water: 0 };
         return allDays[dateStr];
     }
 
-    function saveAllDays() {
-        localStorage.setItem('kbju_days_v2', JSON.stringify(allDays));
-        scheduleCloudPush();
+    function saveAllDays(immediate = true) {
+        storage.set('kbju_days_v2', allDays);
+        scheduleCloudPush(immediate);
+    }
+
+    function onUserParameterChange() {
+        calculateTarget(false);
     }
 
     function renderPresets() {
@@ -1084,7 +1211,12 @@
         const customHTML = customPresets
             .map((item, idx) => ({ item, idx }))
             .filter(x => x.item.name.toLowerCase().includes(q))
-            .map(x => `<span class="chip custom" onclick="selectPreset(${x.idx}, true)" oncontextmenu="deleteCustomPreset(event, ${x.idx})">⭐ ${escapeHTML(x.item.name)}</span>`);
+            .map(x => `
+                <span class="chip custom" onclick="selectPreset(${x.idx}, true)">
+                    ⭐ ${escapeHTML(x.item.name)}
+                    <span class="chip-del" onclick="deleteCustomPreset(event, ${x.idx})" title="Удалить из моих продуктов">✕</span>
+                </span>
+            `);
 
         const defHTML = defaultPresets
             .map((item, idx) => ({ item, idx }))
@@ -1107,28 +1239,43 @@
     function saveCustomPreset() {
         const name = document.getElementById('f-name').value.trim();
         if (!name) return showToast('Введите название продукта');
-        const w = parseFloat(document.getElementById('f-weight').value) || 100;
-        const p = parseFloat(document.getElementById('f-p').value) || 0;
-        const f = parseFloat(document.getElementById('f-f').value) || 0;
-        const c = parseFloat(document.getElementById('f-c').value) || 0;
+        const w = Math.max(1, parseFloat(document.getElementById('f-weight').value) || 100);
+        const p = Math.max(0, parseFloat(document.getElementById('f-p').value) || 0);
+        const f = Math.max(0, parseFloat(document.getElementById('f-f').value) || 0);
+        const c = Math.max(0, parseFloat(document.getElementById('f-c').value) || 0);
 
         customPresets.unshift({ name, p, f, c, w });
-        localStorage.setItem('kbju_custom_presets', JSON.stringify(customPresets));
+        storage.set('kbju_custom_presets', customPresets);
         renderPresets();
-        scheduleCloudPush();
+        scheduleCloudPush(true);
         showToast('Добавлено в «⭐ Мои продукты»');
     }
 
     function deleteCustomPreset(e, idx) {
-        e.preventDefault();
+        e.stopPropagation();
         customPresets.splice(idx, 1);
-        localStorage.setItem('kbju_custom_presets', JSON.stringify(customPresets));
+        storage.set('kbju_custom_presets', customPresets);
         renderPresets();
-        scheduleCloudPush();
+        scheduleCloudPush(true);
+    }
+
+    function getCurrentInputsAsSettings() {
+        const checkedGender = document.querySelector('input[name="gender"]:checked');
+        return {
+            gender: checkedGender ? checkedGender.value : 'male',
+            age: document.getElementById('age').value,
+            height: document.getElementById('height').value,
+            weight: document.getElementById('weight').value,
+            bodyfat: document.getElementById('bodyfat').value,
+            activity: document.getElementById('activity').value,
+            goal: document.getElementById('goal').value,
+            macroProfile: document.getElementById('macroProfile').value
+        };
     }
 
     function calculateTarget(skipCloudSync = false) {
-        const gender = document.querySelector('input[name="gender"]:checked').value;
+        const checkedGender = document.querySelector('input[name="gender"]:checked');
+        const gender = checkedGender ? checkedGender.value : 'male';
         const age = Math.max(14, Math.min(100, parseFloat(document.getElementById('age').value) || 30));
         const height = Math.max(120, Math.min(230, parseFloat(document.getElementById('height').value) || 175));
         const weight = Math.max(35, Math.min(250, parseFloat(document.getElementById('weight').value) || 75));
@@ -1195,7 +1342,10 @@
         document.getElementById('res-f-pct').innerText = `${f * 9} ккал (${Math.round((f*9/realKcal)*100)}%)`;
         document.getElementById('res-c-pct').innerText = `${c * 4} ккал (${Math.round((c*4/realKcal)*100)}%)`;
 
-        saveSettings(skipCloudSync);
+        if (!skipCloudSync) {
+            storage.set('kbju_settings', getCurrentInputsAsSettings());
+            scheduleCloudPush(false);
+        }
         updateDiaryUI();
     }
 
@@ -1208,18 +1358,21 @@
         const meal = document.getElementById('f-meal').value;
 
         const day = getDayData(currentDate);
-        day.items.push({ id: Date.now(), name, weight, p100, f100, c100, meal });
-        saveAllDays();
+        day.items.push({
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            name, weight, p100, f100, c100, meal
+        });
+        saveAllDays(true);
         updateDiaryUI();
     }
 
     function updateItemWeight(id, newWeight) {
-        const w = Math.max(1, parseFloat(newWeight) || 0);
+        const w = Math.max(1, parseFloat(newWeight) || 1);
         const day = getDayData(currentDate);
         const item = day.items.find(i => i.id === id);
         if (item) {
             item.weight = w;
-            saveAllDays();
+            saveAllDays(true);
             updateDiaryUI();
         }
     }
@@ -1227,20 +1380,21 @@
     function removeFood(id) {
         const day = getDayData(currentDate);
         day.items = day.items.filter(item => item.id !== id);
-        saveAllDays();
+        saveAllDays(true);
         updateDiaryUI();
     }
 
     function clearDay() {
         allDays[currentDate] = { items: [], water: 0 };
-        saveAllDays();
+        saveAllDays(true);
         updateDiaryUI();
+        showToast(`День ${currentDate} очищен`);
     }
 
     function addWater(amount) {
         const day = getDayData(currentDate);
         day.water = Math.max(0, (day.water || 0) + amount);
-        saveAllDays();
+        saveAllDays(true);
         updateDiaryUI();
     }
 
@@ -1277,7 +1431,7 @@
             : day.items.filter(i => i.meal === currentMealFilter);
 
         if (visibleItems.length === 0) {
-            listEl.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">Список пуст. Выберите продукт и нажмите «+ В дневник».</div>`;
+            listEl.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">Список за ${currentDate} пуст. Выберите продукт и нажмите «+ В дневник».</div>`;
         } else {
             listEl.innerHTML = visibleItems.map(item => {
                 const r = item.weight / 100;
@@ -1297,7 +1451,7 @@
                             <span class="badge" style="color:var(--protein)">Б:${p}</span>
                             <span class="badge" style="color:var(--fat)">Ж:${f}</span>
                             <span class="badge" style="color:var(--carbs)">У:${c}</span>
-                            <button class="del-btn" onclick="removeFood(${item.id})">✕</button>
+                            <button class="del-btn" onclick="removeFood(${item.id})" title="Удалить">✕</button>
                         </div>
                     </div>
                 `;
@@ -1334,9 +1488,11 @@
     }
 
     function shiftDate(days) {
-        const d = new Date(currentDate);
+        const parts = currentDate.split('-').map(Number);
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
         d.setDate(d.getDate() + days);
-        currentDate = d.toISOString().split('T')[0];
+        const offsetMs = d.getTimezoneOffset() * 60000;
+        currentDate = new Date(d.getTime() - offsetMs).toISOString().split('T')[0];
         document.getElementById('currentDate').value = currentDate;
         updateDiaryUI();
     }
@@ -1345,12 +1501,12 @@
         const html = document.documentElement;
         const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
         html.setAttribute('data-theme', next);
-        localStorage.setItem('kbju_theme', next);
+        try { localStorage.setItem('kbju_theme', next); } catch (e) {}
     }
 
     function exportData() {
         const payload = {
-            settings: JSON.parse(localStorage.getItem('kbju_settings') || '{}'),
+            settings: getCurrentInputsAsSettings(),
             customPresets,
             allDays
         };
@@ -1368,21 +1524,22 @@
         reader.onload = (ev) => {
             try {
                 const data = JSON.parse(ev.target.result);
-                if (data.settings) localStorage.setItem('kbju_settings', JSON.stringify(data.settings));
-                if (data.customPresets) {
+                if (data.settings) storage.set('kbju_settings', data.settings);
+                if (Array.isArray(data.customPresets)) {
                     customPresets = data.customPresets;
-                    localStorage.setItem('kbju_custom_presets', JSON.stringify(customPresets));
+                    storage.set('kbju_custom_presets', customPresets);
                 }
-                if (data.allDays) {
+                if (data.allDays && typeof data.allDays === 'object') {
                     allDays = data.allDays;
-                    localStorage.setItem('kbju_days_v2', JSON.stringify(allDays));
+                    storage.set('kbju_days_v2', allDays);
                 }
                 applySavedSettingsToInputs();
                 renderPresets();
-                calculateTarget();
-                showToast('Данные восстановлены!');
+                calculateTarget(false);
+                scheduleCloudPush(true);
+                showToast('Данные восстановлены и отправлены в облако!');
             } catch (err) {
-                showToast('Ошибка файла JSON');
+                showToast('Ошибка чтения файла JSON');
             }
         };
         reader.readAsText(file);
@@ -1397,26 +1554,11 @@
             text += `• [${i.meal}] ${i.name} (${i.weight}г) — ${kcal} ккал\n`;
         });
         text += `💧 Вода: ${day.water || 0} мл`;
-        navigator.clipboard.writeText(text).then(() => showToast('Отчёт скопирован'));
-    }
-
-    function saveSettings(skipCloudSync = false) {
-        const settings = {
-            gender: document.querySelector('input[name="gender"]:checked').value,
-            age: document.getElementById('age').value,
-            height: document.getElementById('height').value,
-            weight: document.getElementById('weight').value,
-            bodyfat: document.getElementById('bodyfat').value,
-            activity: document.getElementById('activity').value,
-            goal: document.getElementById('goal').value,
-            macroProfile: document.getElementById('macroProfile').value
-        };
-        localStorage.setItem('kbju_settings', JSON.stringify(settings));
-        if (!skipCloudSync) scheduleCloudPush();
+        navigator.clipboard.writeText(text).then(() => showToast('Отчёт скопирован в буфер обмена'));
     }
 
     function applySavedSettingsToInputs() {
-        const saved = JSON.parse(localStorage.getItem('kbju_settings') || 'null');
+        const saved = storage.get('kbju_settings', null);
         if (!saved) return;
         const gRadio = document.querySelector(`input[name="gender"][value="${saved.gender}"]`);
         if (gRadio) gRadio.checked = true;
@@ -1429,8 +1571,12 @@
         document.getElementById('macroProfile').value = saved.macroProfile || 'balanced';
     }
 
-    const savedTheme = localStorage.getItem('kbju_theme');
-    if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+    // СТАРТ ПРИЛОЖЕНИЯ
+    try {
+        const savedTheme = localStorage.getItem('kbju_theme');
+        if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+    } catch (e) {}
+
     document.getElementById('currentDate').value = currentDate;
     applySavedSettingsToInputs();
     renderPresets();
