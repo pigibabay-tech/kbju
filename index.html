@@ -2,8 +2,9 @@
 <html lang="ru" data-theme="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NutriCloud PRO — Облачный Калькулятор КБЖУ и Дневник Рациона</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>NutriCloud PRO — Калькулятор КБЖУ и Дневник Рациона</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root[data-theme="dark"] {
             --bg: #0b1120;
@@ -18,7 +19,6 @@
             --carbs: #10b981;
             --danger: #ef4444;
             --success: #22c55e;
-            --warning: #eab308;
             --border: #26354d;
             --input-bg: #0f172a;
         }
@@ -36,7 +36,6 @@
             --carbs: #059669;
             --danger: #dc2626;
             --success: #16a34a;
-            --warning: #ca8a04;
             --border: #e2e8f0;
             --input-bg: #f8fafc;
         }
@@ -48,24 +47,32 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
         }
 
-        body {
+        html, body {
+            width: 100%;
+            max-width: 100vw;
+            overflow-x: hidden;
             background-color: var(--bg);
             color: var(--text);
-            line-height: 1.5;
-            padding: 20px 16px 40px;
-            transition: background-color 0.2s, color 0.2s;
+            line-height: 1.45;
+        }
+
+        body {
+            padding: 16px 12px 40px;
         }
 
         .container {
-            max-width: 1220px;
+            width: 100%;
+            max-width: 1140px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 1fr 1.25fr;
-            gap: 24px;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+            gap: 18px;
         }
 
-        @media (max-width: 960px) {
-            .container { grid-template-columns: 1fr; }
+        @media (max-width: 920px) {
+            .container {
+                grid-template-columns: minmax(0, 1fr);
+            }
         }
 
         /* Верхняя панель */
@@ -73,72 +80,61 @@
             grid-column: 1 / -1;
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 16px 24px;
+            border-radius: 14px;
+            padding: 14px 18px;
             display: flex;
             flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
-            gap: 16px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            gap: 12px;
         }
 
         .brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .brand h1 {
-            font-size: 1.4rem;
-            font-weight: 800;
-            letter-spacing: -0.5px;
-        }
-
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.78rem;
-            padding: 5px 12px;
-            border-radius: 99px;
-            background: rgba(34, 197, 94, 0.12);
-            color: var(--success);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.15s;
-        }
-
-        .status-badge:hover { transform: scale(1.03); }
-
-        .status-badge.syncing {
-            background: rgba(234, 179, 8, 0.12);
-            color: var(--warning);
-            border-color: rgba(234, 179, 8, 0.3);
-        }
-
-        .status-badge.error {
-            background: rgba(239, 68, 68, 0.12);
-            color: var(--danger);
-            border-color: rgba(239, 68, 68, 0.3);
-        }
-
-        .top-controls {
             display: flex;
             align-items: center;
             gap: 10px;
             flex-wrap: wrap;
         }
 
+        .brand h1 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.76rem;
+            padding: 4px 10px;
+            border-radius: 99px;
+            background: rgba(56, 189, 248, 0.12);
+            color: var(--accent);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            font-weight: 600;
+        }
+
+        .status-badge.online {
+            background: rgba(34, 197, 94, 0.12);
+            color: var(--success);
+            border-color: rgba(34, 197, 94, 0.3);
+        }
+
+        .top-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
         .date-nav {
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
             background: var(--input-bg);
-            padding: 4px;
-            border-radius: 10px;
+            padding: 3px;
+            border-radius: 8px;
             border: 1px solid var(--border);
         }
 
@@ -147,24 +143,26 @@
             background: transparent;
             color: var(--text);
             font-weight: 600;
-            padding: 6px 8px;
-            font-size: 0.9rem;
+            padding: 4px 6px;
+            font-size: 0.85rem;
+            width: auto;
         }
 
         /* Карточки */
         .card {
             background-color: var(--card);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            border-radius: 14px;
+            padding: 18px;
+            min-width: 0;
+            width: 100%;
         }
 
         .card-title {
-            font-size: 1.15rem;
+            font-size: 1.08rem;
             font-weight: 700;
-            margin-bottom: 18px;
-            padding-bottom: 12px;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
@@ -175,36 +173,48 @@
 
         .form-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        @media (max-width: 480px) {
+            .form-grid {
+                grid-template-columns: minmax(0, 1fr);
+            }
         }
 
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 5px;
+            min-width: 0;
         }
 
-        .form-group.full { grid-column: 1 / -1; }
+        .form-group.full {
+            grid-column: 1 / -1;
+        }
 
         label {
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
             font-weight: 600;
         }
 
         input, select {
+            width: 100%;
+            min-width: 0;
             background-color: var(--input-bg);
             border: 1px solid var(--border);
             color: var(--text);
-            padding: 10px 12px;
+            padding: 8px 10px;
             border-radius: 8px;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             outline: none;
-            transition: border-color 0.2s;
         }
 
-        input:focus, select:focus { border-color: var(--accent); }
+        input:focus, select:focus {
+            border-color: var(--accent);
+        }
 
         .radio-group {
             display: flex;
@@ -226,11 +236,11 @@
 
         .radio-group span {
             display: block;
-            padding: 7px 0;
+            padding: 6px 0;
             border-radius: 6px;
             font-weight: 600;
+            font-size: 0.85rem;
             color: var(--text-muted);
-            transition: all 0.2s;
         }
 
         .radio-group input:checked + span {
@@ -238,45 +248,46 @@
             color: #fff;
         }
 
-        /* Блок результатов КБЖУ */
+        /* Результаты КБЖУ */
         .results-box {
-            margin-top: 20px;
+            margin-top: 16px;
             background: var(--input-bg);
-            border-radius: 14px;
-            padding: 18px;
+            border-radius: 12px;
+            padding: 14px;
             border: 1px solid var(--border);
         }
 
         .target-header {
             text-align: center;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
 
         .target-header .val {
-            font-size: 2.4rem;
+            font-size: 2.1rem;
             font-weight: 800;
             color: var(--accent);
             line-height: 1.1;
         }
 
         .target-header .sub {
-            font-size: 0.8rem;
+            font-size: 0.76rem;
             color: var(--text-muted);
             margin-top: 4px;
         }
 
         .macros-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
             text-align: center;
         }
 
         .macro-card {
             background: var(--card);
-            padding: 12px 8px;
-            border-radius: 10px;
-            border-top: 4px solid;
+            padding: 10px 6px;
+            border-radius: 8px;
+            border-top: 3px solid;
+            min-width: 0;
         }
 
         .macro-card.p { border-color: var(--protein); }
@@ -284,54 +295,54 @@
         .macro-card.c { border-color: var(--carbs); }
 
         .macro-card .m-val {
-            font-size: 1.25rem;
+            font-size: 1.15rem;
             font-weight: 800;
             margin: 2px 0;
         }
 
         .macro-card .m-label {
-            font-size: 0.75rem;
+            font-size: 0.72rem;
             color: var(--text-muted);
         }
 
-        /* Трекер воды */
+        /* Вода */
         .water-box {
-            margin-top: 18px;
+            margin-top: 14px;
             background: var(--input-bg);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 14px 16px;
+            border-radius: 10px;
+            padding: 12px 14px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
         }
 
         /* Прогресс-бары */
         .progress-section {
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 16px;
         }
 
         .prog-item {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 4px;
         }
 
         .prog-header {
             display: flex;
             justify-content: space-between;
-            font-size: 0.85rem;
+            font-size: 0.82rem;
             font-weight: 600;
         }
 
         .prog-bar-bg {
             width: 100%;
-            height: 10px;
+            height: 9px;
             background: var(--input-bg);
             border-radius: 99px;
             overflow: hidden;
@@ -341,7 +352,7 @@
         .prog-bar-fill {
             height: 100%;
             width: 0%;
-            transition: width 0.3s ease, background-color 0.3s;
+            transition: width 0.3s ease;
             border-radius: 99px;
         }
 
@@ -349,21 +360,19 @@
         .meal-tabs {
             display: flex;
             gap: 6px;
-            margin-bottom: 16px;
-            overflow-x: auto;
-            padding-bottom: 4px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
         }
 
         .meal-tab {
             background: var(--input-bg);
             border: 1px solid var(--border);
             color: var(--text-muted);
-            padding: 7px 14px;
+            padding: 6px 12px;
             border-radius: 99px;
-            font-size: 0.83rem;
+            font-size: 0.8rem;
             font-weight: 600;
             cursor: pointer;
-            white-space: nowrap;
         }
 
         .meal-tab.active {
@@ -372,26 +381,25 @@
             border-color: var(--accent);
         }
 
-        /* Шаблоны продуктов */
+        /* Шаблоны */
         .preset-row {
             display: flex;
             gap: 6px;
-            margin-bottom: 16px;
+            margin-bottom: 14px;
             flex-wrap: wrap;
-            max-height: 115px;
+            max-height: 105px;
             overflow-y: auto;
-            padding: 4px 2px;
+            padding: 2px;
         }
 
         .chip {
             background: var(--input-bg);
             border: 1px solid var(--border);
             color: var(--text-muted);
-            padding: 5px 11px;
-            border-radius: 20px;
-            font-size: 0.78rem;
+            padding: 4px 10px;
+            border-radius: 16px;
+            font-size: 0.76rem;
             cursor: pointer;
-            transition: all 0.15s;
         }
 
         .chip:hover {
@@ -407,22 +415,32 @@
         /* Форма добавления еды */
         .food-adder {
             display: grid;
-            grid-template-columns: 1.8fr 0.8fr 0.8fr 0.8fr 0.8fr;
+            grid-template-columns: 2fr repeat(4, minmax(0, 1fr));
             gap: 8px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             align-items: end;
         }
 
-        @media (max-width: 640px) {
-            .food-adder { grid-template-columns: 1fr 1fr; }
-            .food-adder .full-m { grid-column: 1 / -1; }
+        @media (max-width: 600px) {
+            .food-adder {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .food-adder .full-m {
+                grid-column: 1 / -1;
+            }
         }
 
         .adder-actions {
             display: flex;
             gap: 8px;
-            margin-bottom: 18px;
+            margin-bottom: 14px;
             flex-wrap: wrap;
+        }
+
+        .adder-actions select {
+            width: auto;
+            flex: 1;
+            min-width: 120px;
         }
 
         /* Кнопки */
@@ -430,19 +448,31 @@
             background: var(--accent);
             color: #fff;
             border: none;
-            padding: 9px 15px;
+            padding: 8px 13px;
             border-radius: 8px;
             font-weight: 600;
-            font-size: 0.86rem;
+            font-size: 0.83rem;
             cursor: pointer;
-            transition: opacity 0.2s, background 0.2s;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
+            white-space: nowrap;
         }
 
         .btn:hover { background: var(--accent-hover); }
+
+        .btn-google {
+            background: #ffffff;
+            color: #0f172a;
+            border: 1px solid #cbd5e1;
+            width: 100%;
+            padding: 10px;
+            font-size: 0.9rem;
+            margin-bottom: 14px;
+        }
+
+        .btn-google:hover { background: #f1f5f9; }
 
         .btn-outline {
             background: transparent;
@@ -463,7 +493,7 @@
 
         /* Список съеденного */
         .food-list {
-            max-height: 360px;
+            max-height: 320px;
             overflow-y: auto;
             border-top: 1px solid var(--border);
         }
@@ -472,42 +502,40 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 6px;
+            padding: 8px 4px;
             border-bottom: 1px solid var(--border);
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
         }
 
-        .food-item:hover { background: var(--card-hover); }
-
         .food-info strong {
             display: block;
-            font-size: 0.92rem;
+            font-size: 0.88rem;
         }
 
         .food-info span {
-            font-size: 0.78rem;
+            font-size: 0.75rem;
             color: var(--text-muted);
         }
 
         .food-macros {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             flex-wrap: wrap;
         }
 
         .inline-weight {
-            width: 68px;
-            padding: 4px 6px;
-            font-size: 0.85rem;
+            width: 60px;
+            padding: 4px;
+            font-size: 0.82rem;
             text-align: center;
         }
 
         .badge {
-            font-size: 0.75rem;
-            padding: 3px 7px;
-            border-radius: 6px;
+            font-size: 0.72rem;
+            padding: 2px 6px;
+            border-radius: 5px;
             background: var(--input-bg);
             font-weight: 600;
             border: 1px solid var(--border);
@@ -518,58 +546,65 @@
             border: none;
             color: var(--text-muted);
             cursor: pointer;
-            font-size: 1rem;
-            padding: 4px 6px;
+            font-size: 0.95rem;
+            padding: 2px 5px;
         }
 
         .del-btn:hover { color: var(--danger); }
 
-        /* Модальное окно облачного профиля */
+        /* Модальное окно авторизации */
         .modal-backdrop {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.65);
+            background: rgba(0, 0, 0, 0.7);
             backdrop-filter: blur(3px);
             display: none;
             align-items: center;
             justify-content: center;
             z-index: 999;
-            padding: 16px;
+            padding: 14px;
         }
 
         .modal {
             background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            max-width: 460px;
+            border-radius: 14px;
+            max-width: 400px;
             width: 100%;
-            padding: 24px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            padding: 22px;
         }
 
         .modal h3 {
-            margin-bottom: 10px;
-            font-size: 1.2rem;
+            margin-bottom: 6px;
+            font-size: 1.15rem;
         }
 
         .modal p {
-            font-size: 0.86rem;
+            font-size: 0.82rem;
             color: var(--text-muted);
-            margin-bottom: 16px;
+            margin-bottom: 14px;
+        }
+
+        .divider {
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: 12px 0;
+            position: relative;
         }
 
         .toast {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: 18px;
+            right: 18px;
             background: var(--card);
             border: 1px solid var(--accent);
             color: var(--text);
-            padding: 12px 18px;
-            border-radius: 10px;
-            font-size: 0.88rem;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
             font-weight: 600;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.35);
             display: none;
             z-index: 1000;
         }
@@ -582,28 +617,29 @@
     <header class="topbar">
         <div class="brand">
             <h1>⚡ NutriCloud PRO</h1>
-            <span class="status-badge" id="cloudBadge" onclick="openCloudModal()" title="Нажмите для настройки облачной синхронизации">
-                ☁️ Облако активно
-            </span>
+            <span class="status-badge" id="authBadge">Локальный режим</span>
         </div>
 
         <div class="top-controls">
             <div class="date-nav">
-                <button class="btn btn-outline" style="padding: 5px 10px;" onclick="shiftDate(-1)" title="Предыдущий день">◀</button>
+                <button class="btn btn-outline" style="padding: 4px 8px;" onclick="shiftDate(-1)">◀</button>
                 <input type="date" id="currentDate" onchange="changeDate(this.value)">
-                <button class="btn btn-outline" style="padding: 5px 10px;" onclick="shiftDate(1)" title="Следующий день">▶</button>
+                <button class="btn btn-outline" style="padding: 4px 8px;" onclick="shiftDate(1)">▶</button>
             </div>
-            <button class="btn btn-outline" onclick="openCloudModal()">🔑 Профиль: <span id="syncCodeLabel">...</span></button>
-            <button class="btn btn-outline" onclick="exportData()" title="Скачать резервную копию">⬇ JSON</button>
-            <label class="btn btn-outline" style="margin:0; cursor:pointer;" title="Загрузить резервную копию">
-                ⬆ JSON
+
+            <button class="btn" id="loginBtn" onclick="openAuthModal()">👤 Войти в аккаунт</button>
+            <button class="btn btn-outline btn-danger" id="logoutBtn" style="display:none;" onclick="signOutUser()">Выйти</button>
+
+            <button class="btn btn-outline" onclick="exportData()" title="Скачать JSON">⬇</button>
+            <label class="btn btn-outline" style="margin:0; cursor:pointer;" title="Загрузить JSON">
+                ⬆
                 <input type="file" accept=".json" style="display:none" onchange="importData(event)">
             </label>
             <button class="btn btn-outline" onclick="toggleTheme()">🌗</button>
         </div>
     </header>
 
-    <!-- ЛЕВАЯ КОЛОНКА: ПАРАМЕТРЫ И НОРМА -->
+    <!-- ЛЕВАЯ КОЛОНКА -->
     <div class="card">
         <div class="card-title">
             <span>1. Ваши параметры и цель</span>
@@ -647,32 +683,32 @@
             <div class="form-group full">
                 <label>Уровень физической активности</label>
                 <select id="activity" onchange="calculateTarget()">
-                    <option value="1.2">Сидячий образ жизни (офис, минимум движений)</option>
-                    <option value="1.375" selected>Лёгкая активность (1–3 тренировки в неделю)</option>
-                    <option value="1.55">Средняя активность (3–5 тренировок в неделю)</option>
-                    <option value="1.725">Высокая активность (интенсивные тренировки 6–7 раз)</option>
-                    <option value="1.9">Экстремальная активность (физический труд / 2 тренировки в день)</option>
+                    <option value="1.2">Сидячий образ жизни (минимум движений)</option>
+                    <option value="1.375" selected>Лёгкая активность (1–3 тренировки в нед.)</option>
+                    <option value="1.55">Средняя активность (3–5 тренировок в нед.)</option>
+                    <option value="1.725">Высокая активность (6–7 тренировок в нед.)</option>
+                    <option value="1.9">Экстремальная активность (физ. труд)</option>
                 </select>
             </div>
 
             <div class="form-group">
                 <label>Цель</label>
                 <select id="goal" onchange="calculateTarget()">
-                    <option value="-20">Быстрое снижение веса (-20%)</option>
-                    <option value="-15">Плавное снижение веса (-15%)</option>
-                    <option value="0" selected>Поддержание формы (0%)</option>
-                    <option value="10">Сухой набор массы (+10%)</option>
-                    <option value="15">Активный набор массы (+15%)</option>
+                    <option value="-20">Быстрое снижение (-20%)</option>
+                    <option value="-15">Плавное снижение (-15%)</option>
+                    <option value="0" selected>Поддержание (0%)</option>
+                    <option value="10">Сухой набор (+10%)</option>
+                    <option value="15">Активный набор (+15%)</option>
                 </select>
             </div>
 
             <div class="form-group">
-                <label>Схема макронутриентов</label>
+                <label>Схема БЖУ</label>
                 <select id="macroProfile" onchange="calculateTarget()">
-                    <option value="balanced" selected>По весу тела (Б: 1.8г/кг, Ж: 1г/кг)</option>
-                    <option value="highprotein">Высокобелковая (Б: 2.2г/кг, Ж: 0.9г/кг)</option>
-                    <option value="lowcarb">Низкоуглеводная (35% Б / 40% Ж / 25% У)</option>
-                    <option value="keto">Кето-рацион (20% Б / 75% Ж / 5% У)</option>
+                    <option value="balanced" selected>По весу (Б: 1.8г, Ж: 1г)</option>
+                    <option value="highprotein">Высокобелковая (Б: 2.2г)</option>
+                    <option value="lowcarb">Низкоуглеводная (35/40/25)</option>
+                    <option value="keto">Кето (20/75/5)</option>
                 </select>
             </div>
         </div>
@@ -680,8 +716,8 @@
         <div class="results-box">
             <div class="target-header">
                 <div class="sub">Целевая норма калорий на день</div>
-                <div class="val"><span id="res-kcal">0</span> <small style="font-size: 1.1rem; font-weight: 600;">ккал</small></div>
-                <div class="sub" id="res-bmr-info">BMR: 0 ккал | Поддержка (TDEE): 0 ккал</div>
+                <div class="val"><span id="res-kcal">0</span> <small style="font-size: 1rem;">ккал</small></div>
+                <div class="sub" id="res-bmr-info">BMR: 0 ккал | Поддержка: 0 ккал</div>
             </div>
 
             <div class="macros-grid">
@@ -703,30 +739,29 @@
             </div>
         </div>
 
-        <!-- Трекер воды -->
+        <!-- Вода -->
         <div class="water-box">
             <div>
-                <strong style="font-size: 0.92rem;">💧 Водный баланс за день</strong>
-                <div style="font-size: 0.8rem; color: var(--text-muted);" id="water-text">0 / 2640 мл</div>
+                <strong style="font-size: 0.88rem;">💧 Водный баланс</strong>
+                <div style="font-size: 0.78rem; color: var(--text-muted);" id="water-text">0 / 2640 мл</div>
             </div>
             <div style="display: flex; gap: 6px;">
-                <button class="btn btn-outline" onclick="addWater(-250)">-250 мл</button>
+                <button class="btn btn-outline" onclick="addWater(-250)">-250</button>
                 <button class="btn" onclick="addWater(250)">+250 мл</button>
             </div>
         </div>
     </div>
 
-    <!-- ПРАВАЯ КОЛОНКА: ДНЕВНИК РАЦИОНА -->
+    <!-- ПРАВАЯ КОЛОНКА -->
     <div class="card">
         <div class="card-title">
             <span>2. Дневник питания</span>
-            <div style="display:flex; gap: 8px;">
+            <div style="display:flex; gap: 6px;">
                 <button class="btn btn-outline" onclick="copyReport()">📋 Отчёт</button>
-                <button class="btn btn-outline btn-danger" onclick="clearDay()">Очистить день</button>
+                <button class="btn btn-outline btn-danger" onclick="clearDay()">Очистить</button>
             </div>
         </div>
 
-        <!-- Прогресс-бары -->
         <div class="progress-section">
             <div class="prog-item">
                 <div class="prog-header">
@@ -769,25 +804,23 @@
             </div>
         </div>
 
-        <!-- Вкладки приёмов пищи -->
         <div class="meal-tabs">
-            <button class="meal-tab active" onclick="setMealFilter('all', this)">Все приёмы</button>
+            <button class="meal-tab active" onclick="setMealFilter('all', this)">Все</button>
             <button class="meal-tab" onclick="setMealFilter('Завтрак', this)">🌅 Завтрак</button>
             <button class="meal-tab" onclick="setMealFilter('Обед', this)">🍲 Обед</button>
             <button class="meal-tab" onclick="setMealFilter('Ужин', this)">🌙 Ужин</button>
             <button class="meal-tab" onclick="setMealFilter('Перекус', this)">🍏 Перекус</button>
         </div>
 
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <label>Быстрая база продуктов (кликните для подстановки):</label>
-            <input type="text" id="presetSearch" placeholder="🔍 Поиск продукта..." style="padding:4px 10px; font-size:0.8rem; width:170px;" oninput="renderPresets()">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px; flex-wrap:wrap;">
+            <label>Быстрая база продуктов:</label>
+            <input type="text" id="presetSearch" placeholder="🔍 Поиск..." style="padding:4px 8px; font-size:0.78rem; width:140px;" oninput="renderPresets()">
         </div>
         <div class="preset-row" id="presets"></div>
 
-        <!-- Форма добавления продукта -->
         <div class="food-adder">
             <div class="form-group full-m">
-                <label>Продукт / блюдо</label>
+                <label>Продукт</label>
                 <input type="text" id="f-name" placeholder="Куриная грудка">
             </div>
             <div class="form-group">
@@ -795,48 +828,62 @@
                 <input type="number" id="f-weight" value="150" min="1">
             </div>
             <div class="form-group">
-                <label>Б (на 100г)</label>
+                <label>Б (100г)</label>
                 <input type="number" id="f-p" value="23.6" min="0" step="0.1">
             </div>
             <div class="form-group">
-                <label>Ж (на 100г)</label>
+                <label>Ж (100г)</label>
                 <input type="number" id="f-f" value="1.9" min="0" step="0.1">
             </div>
             <div class="form-group">
-                <label>У (на 100г)</label>
+                <label>У (100г)</label>
                 <input type="number" id="f-c" value="0.4" min="0" step="0.1">
             </div>
         </div>
 
         <div class="adder-actions">
-            <select id="f-meal" style="padding: 8px 12px;">
+            <select id="f-meal">
                 <option value="Завтрак">🌅 Завтрак</option>
                 <option value="Обед" selected>🍲 Обед</option>
                 <option value="Ужин">🌙 Ужин</option>
                 <option value="Перекус">🍏 Перекус</option>
             </select>
-            <button class="btn" onclick="addFood()">+ Добавить в дневник</button>
-            <button class="btn btn-outline" onclick="saveCustomPreset()">⭐ В Мои продукты</button>
+            <button class="btn" onclick="addFood()">+ В дневник</button>
+            <button class="btn btn-outline" onclick="saveCustomPreset()">⭐ В Мои</button>
         </div>
 
-        <!-- Список съеденного -->
         <div class="food-list" id="food-list"></div>
     </div>
 </div>
 
-<!-- МОДАЛЬНОЕ ОКНО ОБЛАЧНОГО ПРОФИЛЯ -->
-<div class="modal-backdrop" id="cloudModal">
+<!-- МОДАЛЬНОЕ ОКНО ВХОДА В АККАУНТ -->
+<div class="modal-backdrop" id="authModal">
     <div class="modal">
-        <h3>☁️ Облачная синхронизация (Supabase)</h3>
-        <p>Придумайте свой личный секретный код (например, <b>erik-2026</b>) или используйте текущий. Введите этот же код на телефоне или другом ПК, чтобы синхронизировать свой дневник и продукты.</p>
-        <div class="form-group" style="margin-bottom: 16px;">
-            <label>Ваш секретный код профиля</label>
-            <input type="text" id="syncCodeInput" placeholder="Напр. my-secret-code">
+        <h3>Вход в личный аккаунт</h3>
+        <p>Войдите через Google или по Email, чтобы ваш рацион автоматически синхронизировался на всех устройствах.</p>
+
+        <button class="btn btn-google" onclick="signInWithGoogle()">
+            <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+            Войти через Google
+        </button>
+
+        <div class="divider">— или по Email и паролю —</div>
+
+        <div class="form-group" style="margin-bottom: 10px;">
+            <label>Ваш Email</label>
+            <input type="email" id="authEmail" placeholder="name@example.com">
         </div>
-        <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap;">
-            <button class="btn btn-outline" onclick="closeCloudModal()">Закрыть</button>
-            <button class="btn btn-outline" onclick="pushToCloud(true)">⬆ Сохранить в облако</button>
-            <button class="btn" onclick="applySyncCode()">🔄 Подключить профиль</button>
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label>Пароль (минимум 6 символов)</label>
+            <input type="password" id="authPass" placeholder="••••••••">
+        </div>
+
+        <div style="display:flex; gap:8px; justify-content:space-between; flex-wrap:wrap;">
+            <button class="btn btn-outline" onclick="closeAuthModal()">Отмена</button>
+            <div style="display:flex; gap:6px;">
+                <button class="btn btn-outline" onclick="handleEmailAuth('signup')">Регистрация</button>
+                <button class="btn" onclick="handleEmailAuth('login')">Войти</button>
+            </div>
         </div>
     </div>
 </div>
@@ -844,9 +891,12 @@
 <div class="toast" id="toast"></div>
 
 <script>
-    // КОНФИГУРАЦИЯ SUPABASE
     const SUPABASE_URL = "https://yujosdapctfjqenmkdnh.supabase.co";
     const SUPABASE_KEY = "sb_publishable_XHpRJv-NKJmnjtyTnAflLA_QCU3kJF5";
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let currentUser = null;
+    let syncTimer = null;
 
     const defaultPresets = [
         { name: "Куриная грудка (филе)", p: 23.6, f: 1.9, c: 0.4, w: 150 },
@@ -858,31 +908,20 @@
         { name: "Говядина постная", p: 20.0, f: 7.0, c: 0.0, w: 150 },
         { name: "Индейка (филе)", p: 21.6, f: 1.2, c: 0.0, w: 150 },
         { name: "Лосось / Сёмга", p: 20.0, f: 13.0, c: 0.0, w: 120 },
-        { name: "Тунец в собств. соку", p: 23.0, f: 1.0, c: 0.0, w: 130 },
         { name: "Сыр твёрдый 45%", p: 25.0, f: 27.0, c: 0.0, w: 40 },
-        { name: "Макароны тв. сортов (сух.)", p: 12.5, f: 1.5, c: 71.5, w: 80 },
+        { name: "Макароны (сух.)", p: 12.5, f: 1.5, c: 71.5, w: 80 },
         { name: "Картофель отварной", p: 2.0, f: 0.4, c: 16.7, w: 200 },
         { name: "Оливковое масло", p: 0.0, f: 99.8, c: 0.0, w: 15 },
-        { name: "Сливочное масло 82.5%", p: 0.6, f: 82.5, c: 0.8, w: 15 },
-        { name: "Авокадо", p: 2.0, f: 14.7, c: 1.8, w: 100 },
         { name: "Банан", p: 1.5, f: 0.2, c: 21.8, w: 120 },
         { name: "Яблоко", p: 0.4, f: 0.4, c: 9.8, w: 150 },
-        { name: "Грецкие орехи", p: 15.2, f: 65.2, c: 7.0, w: 30 },
-        { name: "Сывороточный протеин", p: 78.0, f: 5.0, c: 6.0, w: 30 }
+        { name: "Протеин сывороточный", p: 78.0, f: 5.0, c: 6.0, w: 30 }
     ];
-
-    let syncCode = localStorage.getItem('kbju_sync_code');
-    if (!syncCode) {
-        syncCode = 'user-' + Math.random().toString(36).substring(2, 8);
-        localStorage.setItem('kbju_sync_code', syncCode);
-    }
 
     let customPresets = JSON.parse(localStorage.getItem('kbju_custom_presets') || '[]');
     let allDays = JSON.parse(localStorage.getItem('kbju_days_v2') || '{}');
     let currentDate = new Date().toISOString().split('T')[0];
     let currentMealFilter = 'all';
     let targetMacros = { kcal: 2000, p: 140, f: 80, c: 200, water: 2640 };
-    let syncTimer = null;
 
     function escapeHTML(str) {
         return String(str).replace(/[&<>"']/g, m => ({
@@ -895,122 +934,141 @@
         t.textContent = msg;
         t.style.display = 'block';
         clearTimeout(window._toastTimer);
-        window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 2800);
+        window._toastTimer = setTimeout(() => { t.style.display = 'none'; }, 3000);
     }
 
-    function setCloudBadge(state, text) {
-        const b = document.getElementById('cloudBadge');
-        b.className = 'status-badge ' + (state || '');
-        b.textContent = text;
-        document.getElementById('syncCodeLabel').textContent = syncCode;
+    // АВТОРИЗАЦИЯ (GOOGLE + EMAIL/ПАРОЛЬ)
+    function openAuthModal() {
+        document.getElementById('authModal').style.display = 'flex';
     }
 
-    // ОБЛАЧНАЯ СИНХРОНИЗАЦИЯ ЧЕРЕЗ REST API SUPABASE
+    function closeAuthModal() {
+        document.getElementById('authModal').style.display = 'none';
+    }
+
+    async function signInWithGoogle() {
+        const redirectUrl = window.location.origin + window.location.pathname;
+        const { error } = await sb.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: redirectUrl }
+        });
+        if (error) showToast('Ошибка Google входа: ' + error.message);
+    }
+
+    async function handleEmailAuth(mode) {
+        const email = document.getElementById('authEmail').value.trim();
+        const password = document.getElementById('authPass').value;
+        if (!email || password.length < 6) {
+            return showToast('Введите корректный Email и пароль (от 6 символов)');
+        }
+
+        if (mode === 'signup') {
+            const { data, error } = await sb.auth.signUp({ email, password });
+            if (error) return showToast('Ошибка: ' + error.message);
+            closeAuthModal();
+            showToast('Аккаунт создан! Вы вошли в систему.');
+        } else {
+            const { data, error } = await sb.auth.signInWithPassword({ email, password });
+            if (error) return showToast('Неверный логин или пароль');
+            closeAuthModal();
+            showToast('Вы успешно вошли в аккаунт!');
+        }
+    }
+
+    async function signOutUser() {
+        await sb.auth.signOut();
+        currentUser = null;
+        updateAuthUI();
+        showToast('Вы вышли из аккаунта');
+    }
+
+    function updateAuthUI() {
+        const badge = document.getElementById('authBadge');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+
+        if (currentUser) {
+            badge.className = 'status-badge online';
+            badge.textContent = '☁️ ' + (currentUser.email || 'Аккаунт подключён');
+            loginBtn.style.display = 'none';
+            logoutBtn.style.display = 'inline-flex';
+        } else {
+            badge.className = 'status-badge';
+            badge.textContent = 'Локальный режим';
+            loginBtn.style.display = 'inline-flex';
+            logoutBtn.style.display = 'none';
+        }
+    }
+
+    // СИНХРОНИЗАЦИЯ С ТАБЛИЦЕЙ SUPABASE
     function scheduleCloudPush() {
+        if (!currentUser) return;
         clearTimeout(syncTimer);
-        setCloudBadge('syncing', '⏳ Синхронизация...');
-        syncTimer = setTimeout(() => pushToCloud(false), 900);
+        syncTimer = setTimeout(() => pushToCloud(), 800);
     }
 
-    async function pushToCloud(manual = false) {
+    async function pushToCloud() {
+        if (!currentUser) return;
         try {
-            setCloudBadge('syncing', '⏳ Сохранение в облако...');
             const payload = {
-                sync_code: syncCode,
+                user_id: currentUser.id,
+                email: currentUser.email,
                 settings: JSON.parse(localStorage.getItem('kbju_settings') || '{}'),
                 custom_presets: customPresets,
                 all_days: allDays,
                 updated_at: new Date().toISOString()
             };
-
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/nutri_profiles?on_conflict=sync_code`, {
-                method: 'POST',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'resolution=merge-duplicates'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            setCloudBadge('', '☁️ Синхронизировано');
-            if (manual) showToast('Данные успешно сохранены в облако!');
-        } catch (err) {
-            console.error('Supabase push error:', err);
-            setCloudBadge('error', '⚠️ Локальный режим (офлайн)');
-            if (manual) showToast('Не удалось связаться с облаком, сохранено локально');
+            await sb.from('nutri_profiles').upsert(payload, { onConflict: 'user_id' });
+        } catch (e) {
+            console.error('Ошибка сохранения в облако:', e);
         }
     }
 
-    async function pullFromCloud(codeToLoad, notify = false) {
+    async function pullFromCloud() {
+        if (!currentUser) return;
         try {
-            setCloudBadge('syncing', '⏳ Загрузка из облака...');
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/nutri_profiles?sync_code=eq.${encodeURIComponent(codeToLoad)}&select=*`, {
-                method: 'GET',
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_KEY}`
-                }
-            });
+            const { data, error } = await sb
+                .from('nutri_profiles')
+                .select('*')
+                .eq('user_id', currentUser.id)
+                .maybeSingle();
 
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            const rows = await res.json();
+            if (error) throw error;
 
-            if (rows && rows.length > 0) {
-                const cloud = rows[0];
-                if (cloud.settings && Object.keys(cloud.settings).length > 0) {
-                    localStorage.setItem('kbju_settings', JSON.stringify(cloud.settings));
+            if (data) {
+                if (data.settings && Object.keys(data.settings).length > 0) {
+                    localStorage.setItem('kbju_settings', JSON.stringify(data.settings));
                 }
-                if (Array.isArray(cloud.custom_presets)) {
-                    customPresets = cloud.custom_presets;
+                if (Array.isArray(data.custom_presets)) {
+                    customPresets = data.custom_presets;
                     localStorage.setItem('kbju_custom_presets', JSON.stringify(customPresets));
                 }
-                if (cloud.all_days && typeof cloud.all_days === 'object') {
-                    allDays = cloud.all_days;
+                if (data.all_days && typeof data.all_days === 'object') {
+                    allDays = data.all_days;
                     localStorage.setItem('kbju_days_v2', JSON.stringify(allDays));
                 }
                 applySavedSettingsToInputs();
                 renderPresets();
                 calculateTarget(true);
-                setCloudBadge('', '☁️ Облако подключено');
-                if (notify) showToast(`Профиль «${codeToLoad}» загружен из облака!`);
             } else {
-                // Если в облаке ещё нет записи под этим кодом — создаём её из текущих данных
-                await pushToCloud(false);
-                if (notify) showToast(`Создан новый облачный профиль «${codeToLoad}»`);
+                await pushToCloud();
             }
-        } catch (err) {
-            console.error('Supabase pull error:', err);
-            setCloudBadge('error', '⚠️ Локальный режим');
+        } catch (e) {
+            console.error('Ошибка загрузки из облака:', e);
         }
     }
 
-    function openCloudModal() {
-        document.getElementById('syncCodeInput').value = syncCode;
-        document.getElementById('cloudModal').style.display = 'flex';
-    }
-
-    function closeCloudModal() {
-        document.getElementById('cloudModal').style.display = 'none';
-    }
-
-    async function applySyncCode() {
-        const val = document.getElementById('syncCodeInput').value.trim().toLowerCase().replace(/\s+/g, '-');
-        if (!val || val.length < 3) {
-            return showToast('Код должен содержать минимум 3 символа');
+    sb.auth.onAuthStateChange((event, session) => {
+        currentUser = session?.user || null;
+        updateAuthUI();
+        if (currentUser && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+            pullFromCloud();
         }
-        syncCode = val;
-        localStorage.setItem('kbju_sync_code', syncCode);
-        closeCloudModal();
-        await pullFromCloud(syncCode, true);
-    }
+    });
 
+    // ЛОГИКА КАЛЬКУЛЯТОРА И ДНЕВНИКА
     function getDayData(dateStr) {
-        if (!allDays[dateStr]) {
-            allDays[dateStr] = { items: [], water: 0 };
-        }
+        if (!allDays[dateStr]) allDays[dateStr] = { items: [], water: 0 };
         return allDays[dateStr];
     }
 
@@ -1024,12 +1082,12 @@
         const container = document.getElementById('presets');
 
         const customHTML = customPresets
-            .map((item, idx) => ({ item, idx, isCustom: true }))
+            .map((item, idx) => ({ item, idx }))
             .filter(x => x.item.name.toLowerCase().includes(q))
-            .map(x => `<span class="chip custom" onclick="selectPreset(${x.idx}, true)" title="Нажмите для выбора (ПКМ — удалить)" oncontextmenu="deleteCustomPreset(event, ${x.idx})">⭐ ${escapeHTML(x.item.name)}</span>`);
+            .map(x => `<span class="chip custom" onclick="selectPreset(${x.idx}, true)" oncontextmenu="deleteCustomPreset(event, ${x.idx})">⭐ ${escapeHTML(x.item.name)}</span>`);
 
         const defHTML = defaultPresets
-            .map((item, idx) => ({ item, idx, isCustom: false }))
+            .map((item, idx) => ({ item, idx }))
             .filter(x => x.item.name.toLowerCase().includes(q))
             .map(x => `<span class="chip" onclick="selectPreset(${x.idx}, false)">${escapeHTML(x.item.name)}</span>`);
 
@@ -1058,7 +1116,7 @@
         localStorage.setItem('kbju_custom_presets', JSON.stringify(customPresets));
         renderPresets();
         scheduleCloudPush();
-        showToast('Сохранено в «⭐ Мои продукты» (ПКМ для удаления)');
+        showToast('Добавлено в «⭐ Мои продукты»');
     }
 
     function deleteCustomPreset(e, idx) {
@@ -1067,7 +1125,6 @@
         localStorage.setItem('kbju_custom_presets', JSON.stringify(customPresets));
         renderPresets();
         scheduleCloudPush();
-        showToast('Шаблон удалён');
     }
 
     function calculateTarget(skipCloudSync = false) {
@@ -1178,7 +1235,6 @@
         allDays[currentDate] = { items: [], water: 0 };
         saveAllDays();
         updateDiaryUI();
-        showToast('Дневник за выбранный день очищен');
     }
 
     function addWater(amount) {
@@ -1221,7 +1277,7 @@
             : day.items.filter(i => i.meal === currentMealFilter);
 
         if (visibleItems.length === 0) {
-            listEl.innerHTML = `<div style="text-align:center; padding: 26px; color: var(--text-muted); font-size: 0.9rem;">В этой категории пока пусто. Выберите продукт выше и нажмите «+ Добавить».</div>`;
+            listEl.innerHTML = `<div style="text-align:center; padding: 20px; color: var(--text-muted); font-size: 0.85rem;">Список пуст. Выберите продукт и нажмите «+ В дневник».</div>`;
         } else {
             listEl.innerHTML = visibleItems.map(item => {
                 const r = item.weight / 100;
@@ -1236,12 +1292,12 @@
                             <span>${escapeHTML(item.meal || 'Приём')} • ${kcal} ккал</span>
                         </div>
                         <div class="food-macros">
-                            <input type="number" class="inline-weight" value="${item.weight}" min="1" onchange="updateItemWeight(${item.id}, this.value)" title="Изменить вес (г)">
-                            <span style="font-size:0.78rem; color:var(--text-muted)">г</span>
-                            <span class="badge" style="color:var(--protein)">Б: ${p}</span>
-                            <span class="badge" style="color:var(--fat)">Ж: ${f}</span>
-                            <span class="badge" style="color:var(--carbs)">У: ${c}</span>
-                            <button class="del-btn" onclick="removeFood(${item.id})" title="Удалить">✕</button>
+                            <input type="number" class="inline-weight" value="${item.weight}" min="1" onchange="updateItemWeight(${item.id}, this.value)">
+                            <span style="font-size:0.75rem; color:var(--text-muted)">г</span>
+                            <span class="badge" style="color:var(--protein)">Б:${p}</span>
+                            <span class="badge" style="color:var(--fat)">Ж:${f}</span>
+                            <span class="badge" style="color:var(--carbs)">У:${c}</span>
+                            <button class="del-btn" onclick="removeFood(${item.id})">✕</button>
                         </div>
                     </div>
                 `;
@@ -1294,7 +1350,6 @@
 
     function exportData() {
         const payload = {
-            syncCode,
             settings: JSON.parse(localStorage.getItem('kbju_settings') || '{}'),
             customPresets,
             allDays
@@ -1302,9 +1357,8 @@
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `nutricloud-backup-${currentDate}.json`;
+        a.download = `nutricloud-${currentDate}.json`;
         a.click();
-        showToast('Резервная копия скачана');
     }
 
     function importData(e) {
@@ -1326,9 +1380,9 @@
                 applySavedSettingsToInputs();
                 renderPresets();
                 calculateTarget();
-                showToast('Данные восстановлены и отправлены в облако!');
+                showToast('Данные восстановлены!');
             } catch (err) {
-                showToast('Ошибка чтения файла JSON');
+                showToast('Ошибка файла JSON');
             }
         };
         reader.readAsText(file);
@@ -1343,7 +1397,7 @@
             text += `• [${i.meal}] ${i.name} (${i.weight}г) — ${kcal} ккал\n`;
         });
         text += `💧 Вода: ${day.water || 0} мл`;
-        navigator.clipboard.writeText(text).then(() => showToast('Отчёт скопирован в буфер обмена'));
+        navigator.clipboard.writeText(text).then(() => showToast('Отчёт скопирован'));
     }
 
     function saveSettings(skipCloudSync = false) {
@@ -1375,19 +1429,12 @@
         document.getElementById('macroProfile').value = saved.macroProfile || 'balanced';
     }
 
-    function initApp() {
-        const savedTheme = localStorage.getItem('kbju_theme');
-        if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
-        document.getElementById('currentDate').value = currentDate;
-        document.getElementById('syncCodeLabel').textContent = syncCode;
-
-        applySavedSettingsToInputs();
-        renderPresets();
-        calculateTarget(true);
-        pullFromCloud(syncCode, false);
-    }
-
-    initApp();
+    const savedTheme = localStorage.getItem('kbju_theme');
+    if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+    document.getElementById('currentDate').value = currentDate;
+    applySavedSettingsToInputs();
+    renderPresets();
+    calculateTarget(true);
 </script>
 
 </body>
