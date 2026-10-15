@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriCloud PRO — Калькулятор КБЖУ и дневник рациона</title>
+    <!-- Подключение Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Шрифт Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Иконки FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        slate: { 850: '#172033', 900: '#0f172a', 950: '#020617' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button { opacity: 1; }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: #fff !important; color: #000 !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans antialiased min-h-screen pb-14 transition-colors duration-200 selection:bg-sky-500 selection:text-white">
+
+    <!-- Всплывающие уведомления (Toast) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none no-print"></div>
+
+    <!-- Модальное окно подтверждения -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4 no-print">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+            <div class="flex items-center gap-3 text-rose-500 mb-3">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white" id="confirm-title">Подтверждение</h3>
+            </div>
+            <p class="text-slate-600 dark:text-slate-300 text-sm mb-6" id="confirm-message">Вы уверены?</p>
+            <div class="flex justify-end gap-3">
+                <button id="confirm-cancel" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-sm font-medium transition">Отмена</button>
+                <button id="confirm-ok" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition shadow-lg shadow-rose-600/30">Подтвердить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно профиля / информации об облачном ID -->
+    <div id="account-modal" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 hidden items-center justify-center p-4 no-print">
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center pb-3 mb-4 border-b border-slate-200 dark:border-slate-700">
+                <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-cloud text-sky-400"></i> Облачный профиль и синхронизация
+                </h3>
+                <button onclick="window.closeAccountModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="space-y-4 text-xs">
+                <div class="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                    <div class="text-slate-400 mb-1">Статус подключения:</div>
+                    <div id="account-status-detail" class="font-bold text-emerald-500 text-sm flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span> Активна облачная синхронизация
+                    </div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                    <div class="text-slate-400 mb-1">Ваш уникальный идентификатор пользователя (User ID):</div>
+                    <div class="flex items-center justify-between gap-2">
+                        <code id="full-user-id" class="font-mono text-[11px] text-sky-600 dark:text-sky-400 break-all select-all">Загрузка...</code>
+                        <button onclick="window.copyUserId()" class="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-500 font-semibold shrink-0">Копировать</button>
+                    </div>
+                </div>
+                <p class="text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Ваши параметры тела, личная база «Мои продукты» и история питания по каждому дню календаря автоматически сохраняются в защищённом облаке в реальном времени. Вы также можете в любой момент выгрузить полную резервную копию в JSON.
+                </p>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button id="google-login-btn" onclick="window.signInGoogle()" class="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs flex items-center gap-2 transition">
+                        <i class="fa-brands fa-google"></i> Войти через Google
+                    </button>
+                    <button onclick="window.closeAccountModal()" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
+    <header class="border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur sticky top-0 z-30 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap justify-between items-center gap-3">
+            <!-- Логотип -->
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-sky-500/20">
+                    <i class="fa-solid fa-bolt"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">NutriCloud</h1>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/30">SaaS PRO</span>
+                    </div>
+                    <p class="text-[11px] text-slate-500 dark:text-slate-400 hidden xl:block">Умный калькулятор КБЖУ и облачный дневник рациона</p>
+                </div>
+            </div>
+
+            <!-- КАЛЕНДАРЬ И НАВИГАЦИЯ ПО ДНЯМ -->
+            <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+                <button onclick="window.shiftDate(-1)" class="w-8 h-8 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition" title="Предыдущий день">
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <div class="relative flex items-center">
+                    <input type="date" id="current-date-picker" onchange="window.onDatePicked(this.value)" class="bg-transparent text-xs sm:text-sm font-bold text-slate-800 dark:text-white px-2 py-1 rounded-lg outline-none cursor-pointer">
+                </div>
+                <button onclick="window.goToToday()" id="today-btn" class="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-600 dark:text-sky-400 text-xs font-bold transition">
+                    Сегодня
+                </button>
+                <button onclick="window.shiftDate(1)" class="w-8 h-8 rounded-lg hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition" title="Следующий день">
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+            </div>
+
+            <!-- ПРАВЫЙ БЛОК: СТАТУС СИНХРОНИЗАЦИИ, ОТЧЁТ, ТЕМА -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <!-- Кнопка статуса облака и аккаунта -->
+                <button onclick="window.openAccountModal()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-medium flex items-center gap-2 transition" title="Статус облачной синхронизации и ID пользователя">
+                    <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    <span id="user-badge-text" class="text-slate-700 dark:text-slate-200 font-semibold max-w-[130px] truncate">Синхронизация...</span>
+                </button>
+
+                <!-- Копировать отчёт -->
+                <button onclick="window.copyDailySummary()" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition" title="Скопировать отчёт за выбранный день">
+                    <i class="fa-regular fa-share-from-square text-sky-500"></i>
+                    <span class="hidden md:inline">Поделиться</span>
+                </button>
+
+                <!-- Экспорт / Импорт / Печать -->
+                <button onclick="window.exportData()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs text-emerald-500 transition" title="Скачать резервную копию JSON">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+                <label class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs text-amber-500 transition cursor-pointer" title="Загрузить резервную копию JSON">
+                    <i class="fa-solid fa-upload"></i>
+                    <input type="file" id="import-file" accept=".json" class="hidden" onchange="window.importData(event)">
+                </label>
+                <button onclick="window.print()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs text-indigo-400 transition hidden sm:flex" title="Печать / PDF">
+                    <i class="fa-solid fa-print"></i>
+                </button>
+
+                <!-- Переключатель темы -->
+                <button onclick="window.toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-amber-300 transition" title="Переключить светлую/тёмную тему">
+                    <i id="theme-icon" class="fa-solid fa-sun"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ОСНОВНОЙ КОНТЕНТ -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 pt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- ЛЕВАЯ КОЛОНКА (5 колонок): ПАРАМЕТРЫ ТЕЛА, КАЛЬКУЛЯТОР И ВОДА -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+
+            <!-- КАРТОЧКА 1: КАЛЬКУЛЯТОР КБЖУ И ПАРАМЕТРЫ ТЕЛА -->
+            <section class="bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-5 sm:p-6 shadow-lg">
+                <div class="flex justify-between items-center pb-3.5 mb-4 border-b border-slate-200 dark:border-slate-700/80">
+                    <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-sky-500"></i>
+                        1. Параметры тела и расчёт нормы
+                    </h2>
+                    <button onclick="window.resetProfileDefaults()" class="text-xs text-slate-400 hover:text-sky-500 transition no-print">Сбросить</button>
+                </div>
+
+                <!-- Пол -->
+                <div class="mb-4">
+                    <label class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">Пол</label>
+                    <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="male" checked onchange="window.calculateTarget(true)" class="peer hidden">
+                            <span class="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 peer-checked:bg-sky-500 peer-checked:text-slate-950 transition">
+                                <i class="fa-solid fa-mars"></i> Мужской
+                            </span>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="gender" value="female" onchange="window.calculateTarget(true)" class="peer hidden">
+                            <span class="flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 peer-checked:bg-sky-500 peer-checked:text-slate-950 transition">
+                                <i class="fa-solid fa-venus"></i> Женский
+                            </span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Числовые поля -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label for="age" class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Возраст (лет)</label>
+                        <input type="number" id="age" value="30" min="10" max="110" oninput="window.calculateTarget(true)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white outline-none transition">
+                    </div>
+                    <div>
+                        <label for="height" class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Рост (см)</label>
+                        <input type="number" id="height" value="178" min="100" max="250" oninput="window.calculateTarget(true)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white outline-none transition">
+                    </div>
+                    <div>
+                        <label for="weight" class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Вес (кг)</label>
+                        <input type="number" id="weight" value="78" min="25" max="300" step="0.5" oninput="window.calculateTarget(true)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white outline-none transition">
+                    </div>
+                    <div>
+                        <label for="bodyfat" class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1 flex items-center justify-between">
+                            <span>% жира <span class="text-slate-400">(опц.)</span></span>
+                            <span class="text-[10px] text-sky-500 cursor-help" title="При вводе от 4% до 60% автоматически активируется формула Кетча — МакАрдла по сухой мышечной массе">ⓘ</span>
+                        </label>
+                        <input type="number" id="bodyfat" placeholder="Напр. 18" min="4" max="60" step="0.5" oninput="window.calculateTarget(true)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-3 py-2 text-sm text-slate-900 dark:text-white outline-none transition">
+                    </div>
+                </div>
+
+                <!-- Активность, цель и схема макронутриентов -->
+                <div class="space-y-3 mb-4">
+                    <div>
+                        <label for="activity" class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Физическая активность</label>
+                        <select id="activity" onchange="window.calculateTarget(true)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none transition">
+                            <option value="1.2">1.2 — Сидячий образ жизни (офис)</option>
+                            <option value="1.375" selected>1.375 — Лёгкая (1–3 тренировки в неделю)</option>
+                            <option value="1.55">1.55 — Средняя (3–5 тренировок в неделю)</option>
+                            <option value="1.725">1.725 — Высокая (6–7 тренировок в неделю)</option>
+                            <option value="1.9">1.9 — Экстремальная (тяжёлый труд / 2 трен. в день)</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label for="goal" class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Ваша цель</label>
+                            <select id="goal" onchange="window.calculateTarget(true)" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none transition">
+                                <option value="-20">Быстрое похудение (-20%)</option>
+                                <option value="-15">Плавное похудение (-15%)</option>
+                                <option value="-10">Мягкий дефицит (-10%)</option>
+                                <option value="0" selected>Поддержание веса (0%)</option>
+                                <option value="10">Сухой набор массы (+10%)</option>
+                                <option value="15">Активный набор массы (+15%)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="macroProfile" class="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Схема БЖУ</label>
+                            <select id="macroProfile" onchange="window.onMacroProfileChange()" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-900 dark:text-white outline-none transition">
+                                <option value="balanced" selected>По весу (Б: 1.8г/кг, Ж: 1г/кг)</option>
+                                <option value="highprotein">Высокобелковая (Б: 2.2г/кг, Ж: 0.9г/кг)</option>
+                                <option value="pct_balanced">Сбалансированная (30% / 30% / 40%)</option>
+                                <option value="lowcarb">Низкоуглеводная (35% / 40% / 25%)</option>
+                                <option value="keto">Кето-рацион (20% / 75% / 5%)</option>
+                                <option value="custom">Свои проценты БЖУ (вручную)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Настройка своих процентов БЖУ -->
+                    <div id="custom-macros-box" class="hidden p-3 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-2">
+                        <div class="flex justify-between text-[11px] font-semibold">
+                            <span class="text-blue-500">Белки: <span id="cust-p-lbl">30</span>%</span>
+                            <span class="text-amber-500">Жиры: <span id="cust-f-lbl">30</span>%</span>
+                            <span class="text-emerald-500">Углеводы: <span id="cust-c-lbl">40</span>%</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] text-slate-400">Белки (%)</label>
+                                <input type="range" id="cust-p" min="10" max="60" value="30" oninput="window.adjustCustomSliders('p')" class="w-full accent-blue-500">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400">Жиры (%)</label>
+                                <input type="range" id="cust-f" min="10" max="75" value="30" oninput="window.adjustCustomSliders('f')" class="w-full accent-amber-400">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ИТОГОВАЯ ПАНЕЛЬ НОРМЫ -->
+                <div class="bg-slate-100 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Ваша целевая норма:</span>
+                        <span id="formula-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-white dark:bg-slate-800 text-sky-600 dark:text-sky-300 border border-slate-200 dark:border-slate-700">
+                            Миффлина — Сан-Жеора
+                        </span>
+                    </div>
+
+                    <div class="text-center my-2">
+                        <div class="text-3xl sm:text-4xl font-extrabold text-sky-500 dark:text-sky-400 tracking-tight">
+                            <span id="res-kcal">0</span>
+                            <span class="text-base font-medium text-slate-500 dark:text-slate-400">ккал/день</span>
+                        </div>
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 flex justify-center gap-3 flex-wrap">
+                            <span>BMR: <strong class="text-slate-800 dark:text-slate-200" id="res-bmr">0</strong> ккал</span>
+                            <span>•</span>
+                            <span>Поддержка (TDEE): <strong class="text-slate-800 dark:text-slate-200" id="res-tdee">0</strong> ккал</span>
+                        </div>
+                    </div>
+
+                    <!-- Уведомление об автоматическом масштабировании БЖУ -->
+                    <div id="macro-warning" class="hidden my-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-[11px] flex items-start gap-2">
+                        <i class="fa-solid fa-circle-info mt-0.5"></i>
+                        <span id="macro-warning-text"></span>
+                    </div>
+
+                    <!-- Полоса пропорций БЖУ -->
+                    <div class="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden flex my-3 p-0.5 gap-0.5">
+                        <div id="dist-bar-p" class="bg-blue-500 h-full rounded-l-full transition-all duration-300" style="width: 30%"></div>
+                        <div id="dist-bar-f" class="bg-amber-400 h-full transition-all duration-300" style="width: 30%"></div>
+                        <div id="dist-bar-c" class="bg-emerald-500 h-full rounded-r-full transition-all duration-300" style="width: 40%"></div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-white dark:bg-slate-800/90 border-t-4 border-blue-500 rounded-xl p-2 shadow-sm">
+                            <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Белки</div>
+                            <div class="text-base sm:text-lg font-bold text-slate-900 dark:text-white"><span id="res-p">0</span> г</div>
+                            <div class="text-[10px] text-slate-400" id="res-p-sub">0 ккал (0%)</div>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800/90 border-t-4 border-amber-400 rounded-xl p-2 shadow-sm">
+                            <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Жиры</div>
+                            <div class="text-base sm:text-lg font-bold text-slate-900 dark:text-white"><span id="res-f">0</span> г</div>
+                            <div class="text-[10px] text-slate-400" id="res-f-sub">0 ккал (0%)</div>
+                        </div>
+                        <div class="bg-white dark:bg-slate-800/90 border-t-4 border-emerald-500 rounded-xl p-2 shadow-sm">
+                            <div class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Углеводы</div>
+                            <div class="text-base sm:text-lg font-bold text-slate-900 dark:text-white"><span id="res-c">0</span> г</div>
+                            <div class="text-[10px] text-slate-400" id="res-c-sub">0 ккал (0%)</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- КАРТОЧКА 2: ТРЕКЕР ВОДЫ -->
+            <section class="bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-5 sm:p-6 shadow-lg">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        <i class="fa-solid fa-droplet text-sky-500"></i>
+                        Водный баланс за день
+                    </h2>
+                    <span class="text-xs text-slate-500 dark:text-slate-400">Норма (33 мл/кг): <strong id="water-target" class="text-sky-500">2500</strong> мл</span>
+                </div>
+
+                <div class="flex items-end justify-between mb-2">
+                    <div>
+                        <span class="text-2xl font-extrabold text-slate-900 dark:text-white" id="water-current">0</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400"> мл (<span id="water-glasses">0</span> стаканов)</span>
+                    </div>
+                    <span id="water-pct" class="text-xs font-bold text-sky-500">0%</span>
+                </div>
+
+                <!-- Визуальные стаканы -->
+                <div id="water-glasses-visual" class="flex flex-wrap gap-1.5 mb-3"></div>
+
+                <div class="w-full h-2.5 bg-slate-100 dark:bg-slate-900 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700 mb-4">
+                    <div id="water-bar" class="h-full bg-gradient-to-r from-sky-400 to-blue-600 transition-all duration-300 rounded-full" style="width: 0%"></div>
+                </div>
+
+                <div class="flex flex-wrap gap-2 no-print">
+                    <button onclick="window.addWater(250)" class="flex-1 py-2 px-3 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-600 dark:text-sky-300 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-glass-water"></i> +250 мл
+                    </button>
+                    <button onclick="window.addWater(500)" class="flex-1 py-2 px-3 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-600 dark:text-sky-300 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-bottle-water"></i> +500 мл
+                    </button>
+                    <button onclick="window.addWater(-250)" class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold transition" title="Убавить 250 мл">
+                        -250
+                    </button>
+                    <button onclick="window.resetWater()" class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-900 hover:bg-rose-500/20 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-rose-500 text-xs transition" title="Сбросить воду за день">
+                        <i class="fa-solid fa-rotate-left"></i>
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        <!-- ПРАВАЯ КОЛОНКА (7 колонок): ДНЕВНИК РАЦИОНА, БАЗА ПРОДУКТОВ И «МОИ ПРОДУКТЫ» -->
+        <div class="lg:col-span-7 flex flex-col gap-6">
+
+            <section class="bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-5 sm:p-6 shadow-lg flex flex-col h-full">
+                <!-- Заголовок с выбранной датой -->
+                <div class="flex flex-wrap justify-between items-center gap-2 pb-3.5 mb-5 border-b border-slate-200 dark:border-slate-700/80">
+                    <div>
+                        <h2 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <i class="fa-solid fa-utensils text-sky-500"></i>
+                            <span>2. Дневник питания:</span>
+                            <span id="diary-date-label" class="text-sky-500">Сегодня</span>
+                        </h2>
+                    </div>
+                    <div class="flex items-center gap-2 no-print">
+                        <button onclick="window.requestClearDiary()" class="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500 border border-rose-500/30 text-rose-500 hover:text-white text-xs font-semibold transition flex items-center gap-1.5">
+                            <i class="fa-regular fa-trash-can"></i> Очистить день
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ДАШБОРД ВЫПОЛНЕНИЯ ДНЕВНОЙ НОРМЫ (КОЛЬЦЕВАЯ ДИАГРАММА + ПРОГРЕСС-БАРЫ) -->
+                <div class="bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 mb-6 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                    <!-- Кольцевой индикатор калорий -->
+                    <div class="sm:col-span-4 flex flex-col items-center justify-center">
+                        <div class="relative w-28 h-28 flex items-center justify-center">
+                            <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="42" stroke="currentColor" stroke-width="10" fill="transparent" class="text-slate-200 dark:text-slate-800"></circle>
+                                <circle id="donut-kcal" cx="50" cy="50" r="42" stroke="currentColor" stroke-width="10" stroke-linecap="round" fill="transparent"
+                                    stroke-dasharray="263.89" stroke-dashoffset="263.89"
+                                    class="text-sky-500 transition-all duration-500"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                                <span id="donut-val" class="text-lg font-extrabold text-slate-900 dark:text-white leading-none">0</span>
+                                <span class="text-[10px] text-slate-400">из <span id="donut-max">2000</span></span>
+                                <span id="donut-diff" class="text-[10px] font-bold text-sky-500 mt-0.5">2000 ост.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Линейные индикаторы БЖУ -->
+                    <div class="sm:col-span-8 space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold text-blue-500 flex items-center gap-1.5">● Белки</span>
+                                <span id="prog-p-text" class="text-slate-600 dark:text-slate-300 font-semibold">0 / 0 г</span>
+                            </div>
+                            <div class="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div id="bar-p" class="h-full bg-blue-500 transition-all duration-300 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold text-amber-500 flex items-center gap-1.5">● Жиры</span>
+                                <span id="prog-f-text" class="text-slate-600 dark:text-slate-300 font-semibold">0 / 0 г</span>
+                            </div>
+                            <div class="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div id="bar-f" class="h-full bg-amber-400 transition-all duration-300 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="font-bold text-emerald-500 flex items-center gap-1.5">● Углеводы</span>
+                                <span id="prog-c-text" class="text-slate-600 dark:text-slate-300 font-semibold">0 / 0 г</span>
+                            </div>
+                            <div class="w-full h-2.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div id="bar-c" class="h-full bg-emerald-500 transition-all duration-300 rounded-full" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КАТАЛОГ ПРОДУКТОВ + ЛИЧНАЯ БАЗА «МОИ ПРОДУКТЫ» -->
+                <div class="mb-5 no-print">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                        <label class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-book-open text-amber-400"></i>
+                            Каталог продуктов и личные блюда (на 100 г):
+                        </label>
+                        <div class="relative w-full sm:w-60">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                            <input type="text" id="preset-search" oninput="window.renderPresets()" placeholder="Быстрый поиск продукта..." class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white outline-none transition">
+                        </div>
+                    </div>
+
+                    <!-- Вкладки категорий продуктов -->
+                    <div class="flex gap-1.5 overflow-x-auto pb-2 mb-2 text-xs" id="preset-cats">
+                        <button onclick="window.setPresetCategory('all')" data-cat="all" class="preset-cat-btn px-2.5 py-1 rounded-lg bg-sky-500 text-slate-950 font-bold whitespace-nowrap transition">Все</button>
+                        <button onclick="window.setPresetCategory('custom')" data-cat="custom" class="preset-cat-btn px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-amber-500 border border-amber-500/30 font-semibold whitespace-nowrap transition">⭐ Мои продукты (<span id="custom-count">0</span>)</button>
+                        <button onclick="window.setPresetCategory('protein')" data-cat="protein" class="preset-cat-btn px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap transition">Мясо / Рыба / Яйца</button>
+                        <button onclick="window.setPresetCategory('dairy')" data-cat="dairy" class="preset-cat-btn px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap transition">Молочное / Протеин</button>
+                        <button onclick="window.setPresetCategory('carbs')" data-cat="carbs" class="preset-cat-btn px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap transition">Крупы / Гарниры</button>
+                        <button onclick="window.setPresetCategory('fats')" data-cat="fats" class="preset-cat-btn px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap transition">Жиры / Орехи</button>
+                        <button onclick="window.setPresetCategory('veg')" data-cat="veg" class="preset-cat-btn px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap transition">Фрукты / Овощи</button>
+                    </div>
+
+                    <!-- Список чипсов продуктов -->
+                    <div id="presets-container" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2.5 bg-slate-50 dark:bg-slate-900/70 rounded-xl border border-slate-200 dark:border-slate-700/70"></div>
+                </div>
+
+                <!-- ФОРМА КОНСТРУКТОРА ПРИЁМА ПИЩИ -->
+                <div class="bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-4 mb-6 no-print">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200">Добавить продукт в дневник:</span>
+                        <div class="flex items-center gap-3">
+                            <span id="preview-add-kcal" class="text-xs text-sky-500 font-bold">Порция: ~165 ккал</span>
+                            <button onclick="window.saveToCustomFoods()" class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition flex items-center gap-1" title="Сохранить текущие БЖУ в личную базу «Мои продукты»">
+                                <i class="fa-regular fa-star"></i> В «Мои продукты»
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-12 gap-2.5 items-end" onkeydown="window.handleFoodEnter(event)">
+                        <div class="col-span-2 sm:col-span-3">
+                            <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Приём пищи</label>
+                            <select id="f-meal" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-2.5 py-2 text-xs text-slate-900 dark:text-white outline-none">
+                                <option value="breakfast">🌅 Завтрак</option>
+                                <option value="lunch">🍲 Обед</option>
+                                <option value="dinner">🌙 Ужин</option>
+                                <option value="snack">🍏 Перекус</option>
+                            </select>
+                        </div>
+
+                        <div class="col-span-2 sm:col-span-5">
+                            <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Название блюда / продукта</label>
+                            <input type="text" id="f-name" value="Куриная грудка (филе)" placeholder="Напр. Омлет с сыром" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white outline-none">
+                        </div>
+
+                        <div class="col-span-1 sm:col-span-2">
+                            <label class="block text-[11px] text-slate-500 dark:text-slate-400 mb-1">Вес (г)</label>
+                            <input type="number" id="f-weight" value="150" min="1" max="5000" step="1" oninput="window.updateAddPreview()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-xl px-2.5 py-2 text-xs text-slate-900 dark:text-white font-bold outline-none">
+                        </div>
+
+                        <div class="col-span-1 sm:col-span-2">
+                            <button onclick="window.addFood()" class="w-full h-[34px] rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs transition shadow-md shadow-sky-500/20 flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-plus"></i> В рацион
+                            </button>
+                        </div>
+
+                        <!-- БЖУ на 100 г -->
+                        <div class="col-span-2 sm:col-span-4">
+                            <label class="block text-[11px] text-blue-500 font-medium mb-1">Белки (на 100г)</label>
+                            <input type="number" id="f-p" value="23.6" min="0" max="100" step="0.1" oninput="window.updateAddPreview()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-blue-500 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white outline-none">
+                        </div>
+                        <div class="col-span-1 sm:col-span-4">
+                            <label class="block text-[11px] text-amber-500 font-medium mb-1">Жиры (на 100г)</label>
+                            <input type="number" id="f-f" value="1.9" min="0" max="100" step="0.1" oninput="window.updateAddPreview()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-amber-400 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white outline-none">
+                        </div>
+                        <div class="col-span-1 sm:col-span-4">
+                            <label class="block text-[11px] text-emerald-500 font-medium mb-1">Углеводы (на 100г)</label>
+                            <input type="number" id="f-c" value="0.4" min="0" max="100" step="0.1" oninput="window.updateAddPreview()" class="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-emerald-500 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-white outline-none">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ФИЛЬТРЫ ПО ПРИЁМАМ ПИЩИ С ПОДИТОГАМИ -->
+                <div class="flex items-center justify-between gap-2 mb-3 flex-wrap no-print">
+                    <div class="flex gap-1.5 overflow-x-auto pb-1 text-xs" id="meal-filter-tabs">
+                        <button onclick="window.setMealFilter('all')" data-meal="all" class="meal-tab-btn px-3 py-1.5 rounded-xl bg-sky-500 text-slate-950 font-bold transition">Все приёмы</button>
+                        <button onclick="window.setMealFilter('breakfast')" data-meal="breakfast" class="meal-tab-btn px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 transition">🌅 Завтрак <span id="sub-breakfast" class="text-[10px] opacity-75"></span></button>
+                        <button onclick="window.setMealFilter('lunch')" data-meal="lunch" class="meal-tab-btn px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 transition">🍲 Обед <span id="sub-lunch" class="text-[10px] opacity-75"></span></button>
+                        <button onclick="window.setMealFilter('dinner')" data-meal="dinner" class="meal-tab-btn px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 transition">🌙 Ужин <span id="sub-dinner" class="text-[10px] opacity-75"></span></button>
+                        <button onclick="window.setMealFilter('snack')" data-meal="snack" class="meal-tab-btn px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 transition">🍏 Перекус <span id="sub-snack" class="text-[10px] opacity-75"></span></button>
+                    </div>
+                </div>
+
+                <!-- СПИСОК СЪЕДЕННЫХ ПРОДУКТОВ ЗА ВЫБРАННЫЙ ДЕНЬ -->
+                <div id="food-list" class="space-y-2.5 overflow-y-auto max-h-[440px] pr-1"></div>
+            </section>
+        </div>
+    </main>
+
+    <!-- ОСНОВНОЙ МОДУЛЬ ЛОГИКИ И FIREBASE ИНТЕГРАЦИИ -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        /* ============================================================================
+           1. ВСТРОЕННАЯ БАЗА ПОПУЛЯРНЫХ ПРОДУКТОВ (30+ ПОЗИЦИЙ)
+           ============================================================================ */
+        const builtInFoods = [
+            // Мясо, птица, рыба, яйца
+            { name: "Куриная грудка (филе)", p: 23.6, f: 1.9, c: 0.4, w: 150, cat: "protein" },
+            { name: "Филе индейки", p: 21.6, f: 1.2, c: 0.0, w: 150, cat: "protein" },
+            { name: "Говядина постная", p: 20.0, f: 7.0, c: 0.0, w: 150, cat: "protein" },
+            { name: "Свинина нежирная (вырезка)", p: 19.4, f: 7.1, c: 0.0, w: 140, cat: "protein" },
+            { name: "Яйцо куриное (2 шт ~110г)", p: 12.7, f: 11.5, c: 0.7, w: 110, cat: "protein" },
+            { name: "Лосось / Сёмга", p: 20.0, f: 13.0, c: 0.0, w: 120, cat: "protein" },
+            { name: "Треска / Минтай (филе)", p: 17.5, f: 0.7, c: 0.0, w: 180, cat: "protein" },
+            { name: "Тунец консерв. в с/с", p: 23.0, f: 1.0, c: 0.0, w: 130, cat: "protein" },
+            { name: "Креветки отварные", p: 20.5, f: 1.6, c: 0.0, w: 150, cat: "protein" },
+
+            // Молочные продукты и протеин
+            { name: "Творог 5%", p: 17.2, f: 5.0, c: 1.8, w: 150, cat: "dairy" },
+            { name: "Творог обезжиренный 0.5%", p: 18.0, f: 0.5, c: 1.8, w: 150, cat: "dairy" },
+            { name: "Греческий йогурт 2%", p: 8.0, f: 2.0, c: 4.2, w: 140, cat: "dairy" },
+            { name: "Сыр твёрдый (45%)", p: 25.0, f: 27.0, c: 0.0, w: 40, cat: "dairy" },
+            { name: "Моцарелла лайт", p: 24.0, f: 10.0, c: 1.0, w: 80, cat: "dairy" },
+            { name: "Молоко 2.5%", p: 2.8, f: 2.5, c: 4.7, w: 200, cat: "dairy" },
+            { name: "Кефир 1%", p: 3.0, f: 1.0, c: 4.0, w: 250, cat: "dairy" },
+            { name: "Протеин сывороточный (скуп)", p: 78.0, f: 5.0, c: 6.0, w: 30, cat: "dairy" },
+
+            // Крупы, гарниры, хлеб
+            { name: "Гречка (сухая)", p: 12.6, f: 3.3, c: 62.1, w: 80, cat: "carbs" },
+            { name: "Овсянка (геркулес)", p: 12.3, f: 6.1, c: 59.5, w: 70, cat: "carbs" },
+            { name: "Рис белый / Басмати (сухой)", p: 7.0, f: 1.0, c: 78.0, w: 80, cat: "carbs" },
+            { name: "Булгур / Киноа (сух.)", p: 12.5, f: 1.5, c: 64.0, w: 80, cat: "carbs" },
+            { name: "Макароны твёрдых сортов (сух.)", p: 12.5, f: 1.5, c: 71.5, w: 80, cat: "carbs" },
+            { name: "Картофель отварной/печёный", p: 2.0, f: 0.4, c: 16.3, w: 200, cat: "carbs" },
+            { name: "Хлеб цельнозерновой", p: 8.5, f: 2.1, c: 43.0, w: 50, cat: "carbs" },
+            { name: "Хлебцы гречневые/рисовые", p: 10.0, f: 2.5, c: 65.0, w: 30, cat: "carbs" },
+
+            // Жиры, масла, орехи
+            { name: "Оливковое масло", p: 0.0, f: 99.8, c: 0.0, w: 15, cat: "fats" },
+            { name: "Сливочное масло 82.5%", p: 0.6, f: 82.5, c: 0.8, w: 15, cat: "fats" },
+            { name: "Арахисовая паста без сахара", p: 25.0, f: 50.0, c: 13.0, w: 25, cat: "fats" },
+            { name: "Миндаль / Грецкий орех", p: 18.6, f: 57.7, c: 13.0, w: 30, cat: "fats" },
+            { name: "Авокадо", p: 2.0, f: 14.7, c: 1.8, w: 100, cat: "fats" },
+            { name: "Шоколад горький 85%", p: 12.0, f: 46.0, c: 22.0, w: 25, cat: "fats" },
+
+            // Фрукты и овощи
+            { name: "Банан", p: 1.5, f: 0.2, c: 21.8, w: 120, cat: "veg" },
+            { name: "Яблоко", p: 0.4, f: 0.4, c: 9.8, w: 150, cat: "veg" },
+            { name: "Ягоды (клубника/черника)", p: 0.8, f: 0.4, c: 7.5, w: 150, cat: "veg" },
+            { name: "Огурцы / Помидоры (салат)", p: 0.9, f: 0.2, c: 3.2, w: 200, cat: "veg" },
+            { name: "Брокколи / Овощная смесь", p: 2.8, f: 0.4, c: 4.0, w: 150, cat: "veg" }
+        ];
+
+        const mealLabels = {
+            breakfast: { title: "🌅 Завтрак", badge: "bg-amber-500/10 text-amber-600 dark:text-amber-300 border-amber-500/20" },
+            lunch:     { title: "🍲 Обед",    badge: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/20" },
+            dinner:    { title: "🌙 Ужин",    badge: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 border-indigo-500/20" },
+            snack:     { title: "🍏 Перекус", badge: "bg-sky-500/10 text-sky-600 dark:text-sky-300 border-sky-500/20" }
+        };
+
+        /* ============================================================================
+           2. ГЛОБАЛЬНОЕ СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+           ============================================================================ */
+        function getTodayStr() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        let currentDate = getTodayStr();
+        let targetMacros = { kcal: 2000, p: 140, f: 78, c: 200, bmr: 1700, tdee: 2000 };
+        let diaryByDate = {};   // { 'YYYY-MM-DD': { items: [...], water: 0 } }
+        let customFoods = [];   // Личные продукты пользователя
+        let currentPresetCategory = 'all';
+        let currentMealFilter = 'all';
+        let customSliders = { p: 30, f: 30, c: 40 };
+
+        // Firebase состояние
+        let app = null;
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let unsubProfile = null;
+        let unsubDays = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'nutricloud-saas-pro';
+
+        /* ============================================================================
+           3. БЕЗОПАСНОСТЬ, УТИЛИТЫ И УВЕДОМЛЕНИЯ
+           ============================================================================ */
+        function escapeHTML(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function clamp(val, min, max) {
+            return Math.min(Math.max(val, min), max);
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                info: 'bg-slate-800 border-sky-500/50 text-sky-300',
+                success: 'bg-slate-800 border-emerald-500/50 text-emerald-300',
+                error: 'bg-slate-800 border-rose-500/50 text-rose-300'
+            };
+            const icons = {
+                info: 'fa-circle-info',
+                success: 'fa-circle-check',
+                error: 'fa-triangle-exclamation'
+            };
+
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-xl text-xs font-medium transition-all duration-300 ${colors[type] || colors.info}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-sm"></i><span>${escapeHTML(message)}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(8px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 2600);
+        }
+
+        function openConfirmModal(title, message, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            document.getElementById('confirm-title').textContent = title;
+            document.getElementById('confirm-message').textContent = message;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            const okBtn = document.getElementById('confirm-ok');
+            const cancelBtn = document.getElementById('confirm-cancel');
+
+            const cleanup = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                okBtn.onclick = null;
+                cancelBtn.onclick = null;
+            };
+
+            okBtn.onclick = () => { cleanup(); onConfirm(); };
+            cancelBtn.onclick = cleanup;
+        }
+
+        /* ============================================================================
+           4. ИНИЦИАЛИЗАЦИЯ FIREBASE И СИНХРОНИЗАЦИИ (СВЯЗКА С ОБЛАКОМ)
+           ============================================================================ */
+        async function initCloud() {
+            try {
+                if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                    updateSyncBadge('Гостевой сеанс', 'bg-sky-400', 'Локальный режим в памяти');
+                    return;
+                }
+                const firebaseConfig = JSON.parse(__firebase_config);
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Правило 3: Аутентификация ПЕРЕД любыми запросами к Firestore
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
+                    if (user) {
+                        const label = user.displayName || (user.isAnonymous ? `Гость (${user.uid.slice(0, 5)}…)` : user.email);
+                        updateSyncBadge(label, 'bg-emerald-500', 'Облачная синхронизация активна');
+                        document.getElementById('full-user-id').textContent = user.uid;
+                        setupFirestoreListeners(user.uid);
+                    }
+                });
+            } catch (err) {
+                console.warn('Инициализация облака недоступна:', err);
+                updateSyncBadge('Автономный режим', 'bg-amber-400', 'Работа в текущем сеансе');
+            }
+        }
+
+        function updateSyncBadge(text, dotColor, detailText) {
+            const dot = document.getElementById('sync-dot');
+            const badgeText = document.getElementById('user-badge-text');
+            const detail = document.getElementById('account-status-detail');
+            if (dot) dot.className = `w-2 h-2 rounded-full ${dotColor}`;
+            if (badgeText) badgeText.textContent = text;
+            if (detail && detailText) {
+                detail.innerHTML = `<span class="w-2.5 h-2.5 rounded-full ${dotColor} inline-block"></span> ${escapeHTML(detailText)}`;
+            }
+        }
+
+        function setupFirestoreListeners(uid) {
+            if (!db || !uid) return;
+            if (unsubProfile) unsubProfile();
+            if (unsubDays) unsubDays();
+
+            // 1. Слушаем документ настроек профиля и личных продуктов
+            // Строгий путь: /artifacts/{appId}/users/{userId}/profile/main
+            const profileDocRef = doc(db, 'artifacts', appId, 'users', uid, 'profile', 'main');
+            unsubProfile = onSnapshot(profileDocRef, (snap) => {
+                if (snap.exists()) {
+                    const data = snap.data();
+                    if (data.settings) applySettingsToDOM(data.settings);
+                    if (Array.isArray(data.customFoods)) {
+                        customFoods = data.customFoods;
+                        document.getElementById('custom-count').textContent = customFoods.length;
+                        renderPresets();
+                    }
+                    calculateTarget(false);
+                } else {
+                    // Первичное сохранение текущих настроек
+                    pushProfileToCloud();
+                }
+            }, (err) => {
+                console.warn('Ошибка чтения профиля Firestore:', err);
+            });
+
+            // 2. Слушаем коллекцию дней питания
+            // Строгий путь: /artifacts/{appId}/users/{userId}/days
+            const daysColRef = collection(db, 'artifacts', appId, 'users', uid, 'days');
+            unsubDays = onSnapshot(daysColRef, (snap) => {
+                snap.forEach((docSnap) => {
+                    const dData = docSnap.data();
+                    diaryByDate[docSnap.id] = {
+                        items: Array.isArray(dData.items) ? dData.items : [],
+                        water: typeof dData.water === 'number' ? dData.water : 0
+                    };
+                });
+                updateWaterUI();
+                updateDiaryUI();
+            }, (err) => {
+                console.warn('Ошибка чтения дневника Firestore:', err);
+            });
+        }
+
+        async function pushProfileToCloud() {
+            if (!db || !currentUser) return;
+            try {
+                const genderEl = document.querySelector('input[name="gender"]:checked');
+                const settings = {
+                    gender: genderEl ? genderEl.value : 'male',
+                    age: document.getElementById('age').value,
+                    height: document.getElementById('height').value,
+                    weight: document.getElementById('weight').value,
+                    bodyfat: document.getElementById('bodyfat').value,
+                    activity: document.getElementById('activity').value,
+                    goal: document.getElementById('goal').value,
+                    macroProfile: document.getElementById('macroProfile').value,
+                    customSliders
+                };
+                const profileDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'main');
+                await setDoc(profileDocRef, { settings, customFoods, updatedAt: Date.now() }, { merge: true });
+            } catch (e) {
+                console.warn('Ошибка сохранения профиля:', e);
+            }
+        }
+
+        async function pushDayToCloud(dateKey) {
+            if (!db || !currentUser) return;
+            try {
+                const dayRecord = getDayRecord(dateKey);
+                const dayDocRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'days', dateKey);
+                await setDoc(dayDocRef, {
+                    items: dayRecord.items,
+                    water: dayRecord.water,
+                    updatedAt: Date.now()
+                }, { merge: true });
+            } catch (e) {
+                console.warn('Ошибка сохранения дня:', e);
+            }
+        }
+
+        /* ============================================================================
+           5. НАВИГАЦИЯ ПО ДАТАМ (КАЛЕНДАРЬ ИСТОРИИ ПИТАНИЯ)
+           ============================================================================ */
+        function getDayRecord(dateKey = currentDate) {
+            if (!diaryByDate[dateKey]) {
+                diaryByDate[dateKey] = { items: [], water: 0 };
+            }
+            return diaryByDate[dateKey];
+        }
+
+        function formatDateHuman(dateStr) {
+            const today = getTodayStr();
+            if (dateStr === today) return 'Сегодня';
+            const [y, m, d] = dateStr.split('-').map(Number);
+            const dateObj = new Date(y, m - 1, d);
+            return dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        window.shiftDate = function(deltaDays) {
+            const [y, m, d] = currentDate.split('-').map(Number);
+            const dt = new Date(y, m - 1, d);
+            dt.setDate(dt.getDate() + deltaDays);
+            const ny = dt.getFullYear();
+            const nm = String(dt.getMonth() + 1).padStart(2, '0');
+            const nd = String(dt.getDate()).padStart(2, '0');
+            window.onDatePicked(`${ny}-${nm}-${nd}`);
+        };
+
+        window.goToToday = function() {
+            window.onDatePicked(getTodayStr());
+        };
+
+        window.onDatePicked = function(val) {
+            if (!val) return;
+            currentDate = val;
+            document.getElementById('current-date-picker').value = currentDate;
+            document.getElementById('diary-date-label').textContent = formatDateHuman(currentDate);
+            updateWaterUI();
+            updateDiaryUI();
+        };
+
+        /* ============================================================================
+           6. УМНЫЙ КАЛЬКУЛЯТОР BMR, TDEE И МАКРОНУТРИЕНТОВ
+           ============================================================================ */
+        window.onMacroProfileChange = function() {
+            const profile = document.getElementById('macroProfile').value;
+            const customBox = document.getElementById('custom-macros-box');
+            if (profile === 'custom') {
+                customBox.classList.remove('hidden');
+            } else {
+                customBox.classList.add('hidden');
+            }
+            window.calculateTarget(true);
+        };
+
+        window.adjustCustomSliders = function(changed) {
+            let p = parseInt(document.getElementById('cust-p').value, 10) || 30;
+            let f = parseInt(document.getElementById('cust-f').value, 10) || 30;
+            if (p + f > 95) {
+                if (changed === 'p') f = 95 - p;
+                else p = 95 - f;
+                document.getElementById('cust-p').value = p;
+                document.getElementById('cust-f').value = f;
+            }
+            const c = Math.max(5, 100 - p - f);
+            customSliders = { p, f, c };
+            document.getElementById('cust-p-lbl').textContent = p;
+            document.getElementById('cust-f-lbl').textContent = f;
+            document.getElementById('cust-c-lbl').textContent = c;
+            window.calculateTarget(true);
+        };
+
+        window.calculateTarget = function(shouldSync = false) {
+            const genderEl = document.querySelector('input[name="gender"]:checked');
+            const gender = genderEl ? genderEl.value : 'male';
+
+            const rawAge = parseFloat(document.getElementById('age').value);
+            const rawHeight = parseFloat(document.getElementById('height').value);
+            const rawWeight = parseFloat(document.getElementById('weight').value);
+            const rawBodyfat = parseFloat(document.getElementById('bodyfat').value);
+
+            const age = isNaN(rawAge) ? 30 : clamp(rawAge, 10, 110);
+            const height = isNaN(rawHeight) ? 175 : clamp(rawHeight, 100, 250);
+            const weight = isNaN(rawWeight) ? 75 : clamp(rawWeight, 25, 300);
+
+            const activity = parseFloat(document.getElementById('activity').value) || 1.375;
+            const goalPct = parseFloat(document.getElementById('goal').value) || 0;
+            const profile = document.getElementById('macroProfile').value;
+
+            let bmr = 0;
+            let usingKatch = false;
+            let effectiveMass = weight;
+
+            if (!isNaN(rawBodyfat) && rawBodyfat >= 4 && rawBodyfat <= 60) {
+                const lbm = weight * (1 - rawBodyfat / 100);
+                bmr = 370 + (21.6 * lbm);
+                usingKatch = true;
+                if ((gender === 'male' && rawBodyfat > 25) || (gender === 'female' && rawBodyfat > 32)) {
+                    effectiveMass = lbm * 1.15;
+                }
+            } else {
+                bmr = gender === 'male'
+                    ? (10 * weight) + (6.25 * height) - (5 * age) + 5
+                    : (10 * weight) + (6.25 * height) - (5 * age) - 161;
+            }
+
+            bmr = Math.max(800, bmr);
+            const tdee = bmr * activity;
+            const rawTargetKcal = Math.max(1000, Math.round(tdee * (1 + goalPct / 100)));
+
+            let p = 0, f = 0, c = 0;
+            let warningMsg = '';
+
+            if (profile === 'balanced' || profile === 'highprotein') {
+                const pFactor = profile === 'balanced' ? 1.8 : 2.2;
+                const fFactor = profile === 'balanced' ? 1.0 : 0.9;
+
+                let desiredP = effectiveMass * pFactor;
+                let desiredF = effectiveMass * fFactor;
+                const pfCalories = (desiredP * 4) + (desiredF * 9);
+
+                const maxPfCalories = rawTargetKcal * 0.85;
+                if (pfCalories > maxPfCalories) {
+                    const scale = maxPfCalories / pfCalories;
+                    desiredP *= scale;
+                    desiredF *= scale;
+                    warningMsg = 'Белки и жиры пропорционально адаптированы под выбранный дефицит калорий, чтобы сохранить безопасный минимум углеводов.';
+                }
+
+                p = Math.round(desiredP);
+                f = Math.round(desiredF);
+                c = Math.max(0, Math.round((rawTargetKcal - (p * 4) - (f * 9)) / 4));
+            } else if (profile === 'pct_balanced') {
+                p = Math.round((rawTargetKcal * 0.30) / 4);
+                f = Math.round((rawTargetKcal * 0.30) / 9);
+                c = Math.round((rawTargetKcal * 0.40) / 4);
+            } else if (profile === 'lowcarb') {
+                p = Math.round((rawTargetKcal * 0.35) / 4);
+                f = Math.round((rawTargetKcal * 0.40) / 9);
+                c = Math.round((rawTargetKcal * 0.25) / 4);
+            } else if (profile === 'keto') {
+                p = Math.round((rawTargetKcal * 0.20) / 4);
+                f = Math.round((rawTargetKcal * 0.75) / 9);
+                c = Math.round((rawTargetKcal * 0.05) / 4);
+            } else if (profile === 'custom') {
+                p = Math.round((rawTargetKcal * (customSliders.p / 100)) / 4);
+                f = Math.round((rawTargetKcal * (customSliders.f / 100)) / 9);
+                c = Math.round((rawTargetKcal * (customSliders.c / 100)) / 4);
+            }
+
+            const finalKcal = (p * 4) + (f * 9) + (c * 4);
+            targetMacros = {
+                kcal: finalKcal,
+                p,
+                f,
+                c,
+                bmr: Math.round(bmr),
+                tdee: Math.round(tdee),
+                waterTarget: Math.round((weight * 33) / 50) * 50
+            };
+
+            document.getElementById('formula-badge').textContent = usingKatch
+                ? `Кетча — МакАрдла (${rawBodyfat}% жира)`
+                : 'Миффлина — Сан-Жеора';
+
+            document.getElementById('res-kcal').textContent = finalKcal;
+            document.getElementById('res-bmr').textContent = targetMacros.bmr;
+            document.getElementById('res-tdee').textContent = targetMacros.tdee;
+
+            document.getElementById('res-p').textContent = p;
+            document.getElementById('res-f').textContent = f;
+            document.getElementById('res-c').textContent = c;
+
+            const pPct = finalKcal > 0 ? Math.round((p * 4 / finalKcal) * 100) : 0;
+            const fPct = finalKcal > 0 ? Math.round((f * 9 / finalKcal) * 100) : 0;
+            const cPct = Math.max(0, 100 - pPct - fPct);
+
+            document.getElementById('res-p-sub').textContent = `${p * 4} ккал (${pPct}%)`;
+            document.getElementById('res-f-sub').textContent = `${f * 9} ккал (${fPct}%)`;
+            document.getElementById('res-c-sub').textContent = `${c * 4} ккал (${cPct}%)`;
+
+            document.getElementById('dist-bar-p').style.width = `${pPct}%`;
+            document.getElementById('dist-bar-f').style.width = `${fPct}%`;
+            document.getElementById('dist-bar-c').style.width = `${cPct}%`;
+
+            const warnBox = document.getElementById('macro-warning');
+            if (warningMsg) {
+                document.getElementById('macro-warning-text').textContent = warningMsg;
+                warnBox.classList.remove('hidden');
+            } else {
+                warnBox.classList.add('hidden');
+            }
+
+            if (shouldSync) pushProfileToCloud();
+            updateWaterUI();
+            updateDiaryUI();
+        };
+
+        function applySettingsToDOM(s) {
+            const gRadio = document.querySelector(`input[name="gender"][value="${s.gender}"]`);
+            if (gRadio) gRadio.checked = true;
+            if (s.age) document.getElementById('age').value = s.age;
+            if (s.height) document.getElementById('height').value = s.height;
+            if (s.weight) document.getElementById('weight').value = s.weight;
+            if (s.bodyfat !== undefined) document.getElementById('bodyfat').value = s.bodyfat;
+            if (s.activity) document.getElementById('activity').value = s.activity;
+            if (s.goal !== undefined) document.getElementById('goal').value = s.goal;
+            if (s.macroProfile) {
+                document.getElementById('macroProfile').value = s.macroProfile;
+                document.getElementById('custom-macros-box').classList.toggle('hidden', s.macroProfile !== 'custom');
+            }
+            if (s.customSliders) {
+                customSliders = s.customSliders;
+                document.getElementById('cust-p').value = customSliders.p;
+                document.getElementById('cust-f').value = customSliders.f;
+                document.getElementById('cust-p-lbl').textContent = customSliders.p;
+                document.getElementById('cust-f-lbl').textContent = customSliders.f;
+                document.getElementById('cust-c-lbl').textContent = customSliders.c;
+            }
+        }
+
+        window.resetProfileDefaults = function() {
+            applySettingsToDOM({
+                gender: 'male', age: 30, height: 178, weight: 78,
+                bodyfat: '', activity: '1.375', goal: '0', macroProfile: 'balanced'
+            });
+            window.calculateTarget(true);
+            showToast('Параметры тела сброшены по умолчанию', 'info');
+        };
+
+        /* ============================================================================
+           7. КАТАЛОГ ПРОДУКТОВ И «МОИ ПРОДУКТЫ»
+           ============================================================================ */
+        window.setPresetCategory = function(cat) {
+            currentPresetCategory = cat;
+            document.querySelectorAll('.preset-cat-btn').forEach(btn => {
+                if (btn.dataset.cat === cat) {
+                    btn.className = 'preset-cat-btn px-2.5 py-1 rounded-lg bg-sky-500 text-slate-950 font-bold whitespace-nowrap transition';
+                } else if (btn.dataset.cat === 'custom') {
+                    btn.className = 'preset-cat-btn px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-amber-500 border border-amber-500/30 font-semibold whitespace-nowrap transition';
+                } else {
+                    btn.className = 'preset-cat-btn px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 whitespace-nowrap transition';
+                }
+            });
+            window.renderPresets();
+        };
+
+        window.renderPresets = function() {
+            const container = document.getElementById('presets-container');
+            const query = (document.getElementById('preset-search').value || '').trim().toLowerCase();
+
+            const allItems = [
+                ...customFoods.map((item, i) => ({ ...item, isCustom: true, customIdx: i })),
+                ...builtInFoods.map((item, i) => ({ ...item, isCustom: false, builtIdx: i }))
+            ];
+
+            const filtered = allItems.filter(item => {
+                const matchCat = currentPresetCategory === 'all'
+                    || (currentPresetCategory === 'custom' && item.isCustom)
+                    || item.cat === currentPresetCategory;
+                const matchQuery = !query || item.name.toLowerCase().includes(query);
+                return matchCat && matchQuery;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<span class="text-xs text-slate-400 py-2 px-1">Продукты не найдены. Вы можете ввести свои БЖУ ниже и нажать «В Мои продукты».</span>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => {
+                const kcal100 = Math.round(item.p * 4 + item.f * 9 + item.c * 4);
+                if (item.isCustom) {
+                    return `
+                        <div class="inline-flex items-center rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-300 overflow-hidden">
+                            <button onclick="window.selectCustomPreset(${item.customIdx})" class="px-2.5 py-1 hover:bg-amber-500/20 transition flex items-center gap-1">
+                                <span>⭐ ${escapeHTML(item.name)}</span>
+                                <span class="text-[10px] opacity-75">(${kcal100})</span>
+                            </button>
+                            <button onclick="window.deleteCustomFood(${item.customIdx})" class="px-1.5 py-1 hover:bg-rose-500 hover:text-white text-[10px] transition" title="Удалить из Моих продуктов">✕</button>
+                        </div>
+                    `;
+                }
+                return `
+                    <button onclick="window.selectBuiltInPreset(${item.builtIdx})" class="text-left px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-sky-500/10 border border-slate-200 dark:border-slate-700 hover:border-sky-500/50 text-xs text-slate-700 dark:text-slate-200 transition flex items-center gap-1.5">
+                        <span>${escapeHTML(item.name)}</span>
+                        <span class="text-[10px] text-slate-400">(${kcal100})</span>
+                    </button>
+                `;
+            }).join('');
+        };
+
+        window.selectBuiltInPreset = function(idx) {
+            const item = builtInFoods[idx];
+            if (!item) return;
+            fillFoodForm(item);
+        };
+
+        window.selectCustomPreset = function(idx) {
+            const item = customFoods[idx];
+            if (!item) return;
+            fillFoodForm(item);
+        };
+
+        function fillFoodForm(item) {
+            document.getElementById('f-name').value = item.name;
+            document.getElementById('f-weight').value = item.w || 100;
+            document.getElementById('f-p').value = item.p;
+            document.getElementById('f-f').value = item.f;
+            document.getElementById('f-c').value = item.c;
+            window.updateAddPreview();
+        }
+
+        window.saveToCustomFoods = function() {
+            const name = document.getElementById('f-name').value.trim();
+            const w = parseFloat(document.getElementById('f-weight').value) || 100;
+            const p = parseFloat(document.getElementById('f-p').value) || 0;
+            const f = parseFloat(document.getElementById('f-f').value) || 0;
+            const c = parseFloat(document.getElementById('f-c').value) || 0;
+
+            if (!name) {
+                showToast('Введите название продукта для сохранения', 'error');
+                return;
+            }
+            if (p < 0 || f < 0 || c < 0 || (p + f + c) > 105) {
+                showToast('Сумма БЖУ на 100 г не может превышать 100 г', 'error');
+                return;
+            }
+
+            customFoods.unshift({ name, p: +p.toFixed(1), f: +f.toFixed(1), c: +c.toFixed(1), w: Math.round(w), cat: 'custom' });
+            document.getElementById('custom-count').textContent = customFoods.length;
+            pushProfileToCloud();
+            window.setPresetCategory('custom');
+            showToast(`«${name}» сохранён в личную базу «Мои продукты»`, 'success');
+        };
+
+        window.deleteCustomFood = function(idx) {
+            const removed = customFoods.splice(idx, 1);
+            document.getElementById('custom-count').textContent = customFoods.length;
+            pushProfileToCloud();
+            window.renderPresets();
+            if (removed[0]) showToast(`Удалено из базы: ${removed[0].name}`, 'info');
+        };
+
+        window.updateAddPreview = function() {
+            const weight = Math.max(0, parseFloat(document.getElementById('f-weight').value) || 0);
+            const p100 = Math.max(0, parseFloat(document.getElementById('f-p').value) || 0);
+            const f100 = Math.max(0, parseFloat(document.getElementById('f-f').value) || 0);
+            const c100 = Math.max(0, parseFloat(document.getElementById('f-c').value) || 0);
+
+            const ratio = weight / 100;
+            const rawKcal = ((p100 * 4) + (f100 * 9) + (c100 * 4)) * ratio;
+            document.getElementById('preview-add-kcal').textContent = `Порция: ~${Math.round(rawKcal)} ккал`;
+        };
+
+        window.handleFoodEnter = function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                window.addFood();
+            }
+        };
+
+        /* ============================================================================
+           8. УПРАВЛЕНИЕ ДНЕВНИКОМ ПИТАНИЯ ЗА ВЫБРАННЫЙ ДЕНЬ
+           ============================================================================ */
+        function computeItemNutrition(p100, f100, c100, weight) {
+            const ratio = weight / 100;
+            const rawP = p100 * ratio;
+            const rawF = f100 * ratio;
+            const rawC = c100 * ratio;
+            const kcal = Math.round((rawP * 4) + (rawF * 9) + (rawC * 4));
+            return {
+                p: +rawP.toFixed(1),
+                f: +rawF.toFixed(1),
+                c: +rawC.toFixed(1),
+                kcal
+            };
+        }
+
+        window.addFood = function() {
+            const meal = document.getElementById('f-meal').value || 'breakfast';
+            const rawName = document.getElementById('f-name').value.trim();
+            const name = rawName ? rawName : 'Продукт';
+
+            const weight = parseFloat(document.getElementById('f-weight').value);
+            const p100 = parseFloat(document.getElementById('f-p').value) || 0;
+            const f100 = parseFloat(document.getElementById('f-f').value) || 0;
+            const c100 = parseFloat(document.getElementById('f-c').value) || 0;
+
+            if (isNaN(weight) || weight <= 0 || weight > 5000) {
+                showToast('Укажите корректный вес порции (1–5000 г)', 'error');
+                return;
+            }
+            if (p100 < 0 || f100 < 0 || c100 < 0 || (p100 + f100 + c100) > 105) {
+                showToast('Сумма БЖУ на 100 г не может превышать 100 г', 'error');
+                return;
+            }
+
+            const calc = computeItemNutrition(p100, f100, c100, weight);
+            const dayRec = getDayRecord(currentDate);
+
+            dayRec.items.push({
+                id: Date.now() + Math.floor(Math.random() * 1000),
+                meal,
+                name,
+                weight: Math.round(weight),
+                p100: +p100.toFixed(1),
+                f100: +f100.toFixed(1),
+                c100: +c100.toFixed(1),
+                ...calc
+            });
+
+            pushDayToCloud(currentDate);
+            updateDiaryUI();
+            showToast(`Добавлено: ${name} (${Math.round(weight)} г — ${calc.kcal} ккал)`, 'success');
+        };
+
+        window.updateFoodWeight = function(id, newWeightValue) {
+            const w = parseFloat(newWeightValue);
+            if (isNaN(w) || w <= 0 || w > 5000) return;
+
+            const dayRec = getDayRecord(currentDate);
+            const item = dayRec.items.find(entry => entry.id === id);
+            if (!item) return;
+
+            const baseW = item.weight > 0 ? item.weight : 100;
+            const p100 = item.p100 !== undefined ? item.p100 : (item.p / baseW) * 100;
+            const f100 = item.f100 !== undefined ? item.f100 : (item.f / baseW) * 100;
+            const c100 = item.c100 !== undefined ? item.c100 : (item.c / baseW) * 100;
+
+            const calc = computeItemNutrition(p100, f100, c100, w);
+            item.weight = Math.round(w);
+            item.p100 = p100;
+            item.f100 = f100;
+            item.c100 = c100;
+            item.p = calc.p;
+            item.f = calc.f;
+            item.c = calc.c;
+            item.kcal = calc.kcal;
+
+            const rowKcal = document.getElementById(`item-kcal-${item.id}`);
+            const rowP = document.getElementById(`item-p-${item.id}`);
+            const rowF = document.getElementById(`item-f-${item.id}`);
+            const rowC = document.getElementById(`item-c-${item.id}`);
+
+            if (rowKcal) rowKcal.textContent = `${item.kcal} ккал`;
+            if (rowP) rowP.textContent = `Б: ${item.p}`;
+            if (rowF) rowF.textContent = `Ж: ${item.f}`;
+            if (rowC) rowC.textContent = `У: ${item.c}`;
+
+            pushDayToCloud(currentDate);
+            refreshProgressAndSubtotals();
+        };
+
+        window.removeFood = function(id) {
+            const dayRec = getDayRecord(currentDate);
+            dayRec.items = dayRec.items.filter(item => item.id !== id);
+            pushDayToCloud(currentDate);
+            updateDiaryUI();
+        };
+
+        window.requestClearDiary = function() {
+            const dayRec = getDayRecord(currentDate);
+            if (dayRec.items.length === 0) {
+                showToast('Список за этот день уже пуст', 'info');
+                return;
+            }
+            openConfirmModal(
+                'Очистить рацион за день?',
+                `Все записи о приёмах пищи за ${formatDateHuman(currentDate)} будут удалены.`,
+                () => {
+                    dayRec.items = [];
+                    pushDayToCloud(currentDate);
+                    updateDiaryUI();
+                    showToast('Рацион за выбранный день очищен', 'info');
+                }
+            );
+        };
+
+        window.setMealFilter = function(meal) {
+            currentMealFilter = meal;
+            document.querySelectorAll('.meal-tab-btn').forEach(btn => {
+                if (btn.dataset.meal === meal) {
+                    btn.className = 'meal-tab-btn px-3 py-1.5 rounded-xl bg-sky-500 text-slate-950 font-bold transition';
+                } else {
+                    btn.className = 'meal-tab-btn px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 transition';
+                }
+            });
+            updateDiaryUI();
+        };
+
+        function refreshProgressAndSubtotals() {
+            const dayRec = getDayRecord(currentDate);
+            let totKcal = 0, totP = 0, totF = 0, totC = 0;
+            const mealTotals = { breakfast: 0, lunch: 0, dinner: 0, snack: 0 };
+
+            dayRec.items.forEach(item => {
+                totKcal += item.kcal;
+                totP += item.p;
+                totF += item.f;
+                totC += item.c;
+                const m = item.meal || 'breakfast';
+                if (mealTotals[m] !== undefined) mealTotals[m] += item.kcal;
+            });
+
+            totP = +totP.toFixed(1);
+            totF = +totF.toFixed(1);
+            totC = +totC.toFixed(1);
+
+            // Обновление подитогов во вкладках приёмов пищи
+            ['breakfast', 'lunch', 'dinner', 'snack'].forEach(m => {
+                const el = document.getElementById(`sub-${m}`);
+                if (el) el.textContent = mealTotals[m] > 0 ? `(${mealTotals[m]})` : '';
+            });
+
+            // Обновление кольцевой диаграммы калорий
+            const circumference = 263.89;
+            const pct = targetMacros.kcal > 0 ? Math.min(1, totKcal / targetMacros.kcal) : 0;
+            const offset = circumference - (pct * circumference);
+            const donutEl = document.getElementById('donut-kcal');
+            if (donutEl) {
+                donutEl.style.strokeDashoffset = offset;
+                const isOver = totKcal > targetMacros.kcal * 1.05;
+                donutEl.setAttribute('class', `${isOver ? 'text-rose-500' : 'text-sky-500'} transition-all duration-500`);
+            }
+
+            document.getElementById('donut-val').textContent = totKcal;
+            document.getElementById('donut-max').textContent = targetMacros.kcal;
+            const diff = targetMacros.kcal - totKcal;
+            const diffEl = document.getElementById('donut-diff');
+            diffEl.textContent = diff >= 0 ? `${diff} ост.` : `+${Math.abs(diff)} перебор`;
+            diffEl.className = `text-[10px] font-bold mt-0.5 ${diff >= 0 ? 'text-sky-500' : 'text-rose-500'}`;
+
+            // Обновление полос БЖУ
+            document.getElementById('prog-p-text').textContent = `${totP} / ${targetMacros.p} г`;
+            document.getElementById('prog-f-text').textContent = `${totF} / ${targetMacros.f} г`;
+            document.getElementById('prog-c-text').textContent = `${totC} / ${targetMacros.c} г`;
+
+            setBar('bar-p', totP, targetMacros.p, 'bg-blue-500');
+            setBar('bar-f', totF, targetMacros.f, 'bg-amber-400');
+            setBar('bar-c', totC, targetMacros.c, 'bg-emerald-500');
+        }
+
+        function setBar(id, current, max, defaultClass) {
+            const el = document.getElementById(id);
+            const pct = max > 0 ? Math.min(100, (current / max) * 100) : 0;
+            el.style.width = `${pct}%`;
+            const isOver = current > max * 1.05;
+            el.className = `h-full transition-all duration-300 rounded-full ${isOver ? 'bg-rose-500' : defaultClass}`;
+        }
+
+        function updateDiaryUI() {
+            const listEl = document.getElementById('food-list');
+            const dayRec = getDayRecord(currentDate);
+            const filtered = currentMealFilter === 'all'
+                ? dayRec.items
+                : dayRec.items.filter(item => (item.meal || 'breakfast') === currentMealFilter);
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-10 px-4 bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-700/80 rounded-2xl text-slate-400 text-xs">
+                        <i class="fa-solid fa-bowl-food text-2xl text-slate-400 dark:text-slate-600 mb-2 block"></i>
+                        Записей за этот приём пищи пока нет. Выберите продукт из каталога выше или добавьте своё блюдо.
+                    </div>
+                `;
+            } else {
+                listEl.innerHTML = filtered.map(item => {
+                    const mInfo = mealLabels[item.meal] || mealLabels.breakfast;
+                    return `
+                        <div class="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-900/80 hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-700/70 rounded-xl transition">
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded-md border ${mInfo.badge}">${mInfo.title}</span>
+                                    <strong class="text-xs sm:text-sm text-slate-900 dark:text-white truncate">${escapeHTML(item.name)}</strong>
+                                </div>
+                                <div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                                    <label class="text-[11px]">Вес:</label>
+                                    <input type="number" value="${item.weight}" min="1" max="5000"
+                                        oninput="window.updateFoodWeight(${item.id}, this.value)"
+                                        class="w-16 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 focus:border-sky-500 rounded-lg px-2 py-0.5 text-xs text-slate-900 dark:text-white font-bold outline-none">
+                                    <span>г</span>
+                                    <span>•</span>
+                                    <strong id="item-kcal-${item.id}" class="text-sky-600 dark:text-sky-400">${item.kcal} ккал</strong>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-1.5 sm:gap-2">
+                                <span id="item-p-${item.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">Б: ${item.p}</span>
+                                <span id="item-f-${item.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg bg-amber-400/10 text-amber-600 dark:text-amber-300 border border-amber-400/20">Ж: ${item.f}</span>
+                                <span id="item-c-${item.id}" class="text-[11px] font-semibold px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">У: ${item.c}</span>
+                                <button onclick="window.removeFood(${item.id})" class="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-500 dark:text-slate-400 flex items-center justify-center transition ml-1 no-print" title="Удалить">
+                                    <i class="fa-solid fa-xmark text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            refreshProgressAndSubtotals();
+        }
+
+        /* ============================================================================
+           9. ТРЕКЕР ВОДЫ ЗА ВЫБРАННЫЙ ДЕНЬ
+           ============================================================================ */
+        window.addWater = function(amount) {
+            const dayRec = getDayRecord(currentDate);
+            dayRec.water = clamp((dayRec.water || 0) + amount, 0, 10000);
+            pushDayToCloud(currentDate);
+            updateWaterUI();
+        };
+
+        window.resetWater = function() {
+            const dayRec = getDayRecord(currentDate);
+            dayRec.water = 0;
+            pushDayToCloud(currentDate);
+            updateWaterUI();
+            showToast('Счётчик воды за день сброшен', 'info');
+        };
+
+        function updateWaterUI() {
+            const dayRec = getDayRecord(currentDate);
+            const currentW = dayRec.water || 0;
+            const targetW = targetMacros.waterTarget || 2500;
+
+            document.getElementById('water-target').textContent = targetW;
+            document.getElementById('water-current').textContent = currentW;
+            const glassesCount = +(currentW / 250).toFixed(1);
+            document.getElementById('water-glasses').textContent = glassesCount;
+
+            const pct = targetW > 0 ? Math.min(100, Math.round((currentW / targetW) * 100)) : 0;
+            document.getElementById('water-pct').textContent = `${pct}%`;
+            document.getElementById('water-bar').style.width = `${pct}%`;
+
+            // Рендер иконок стаканов (до 12 стаканов)
+            const totalGlasses = Math.max(8, Math.min(14, Math.round(targetW / 250)));
+            const filledGlasses = Math.floor(currentW / 250);
+            const visualEl = document.getElementById('water-glasses-visual');
+            if (visualEl) {
+                let html = '';
+                for (let i = 0; i < totalGlasses; i++) {
+                    const active = i < filledGlasses;
+                    html += `<button onclick="window.addWater(250)" title="+250 мл" class="w-6 h-7 rounded-md flex items-center justify-center text-xs border transition ${active ? 'bg-sky-500/20 border-sky-500 text-sky-400' : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400 opacity-50'}">
+                        <i class="fa-solid fa-glass-water"></i>
+                    </button>`;
+                }
+                visualEl.innerHTML = html;
+            }
+        }
+
+        /* ============================================================================
+           10. МОДАЛЬНОЕ ОКНО АККАУНТА, ТЕМА, ОТЧЁТ И ЭКСПОРТ/ИМПОРТ
+           ============================================================================ */
+        window.openAccountModal = function() {
+            const modal = document.getElementById('account-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        };
+
+        window.closeAccountModal = function() {
+            const modal = document.getElementById('account-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        window.copyUserId = function() {
+            const uid = document.getElementById('full-user-id').textContent;
+            copyTextToClipboard(uid, 'User ID скопирован в буфер обмена');
+        };
+
+        window.signInGoogle = async function() {
+            if (!auth) {
+                showToast('Облачная авторизация недоступна в данной среде', 'error');
+                return;
+            }
+            try {
+                const provider = new GoogleAuthProvider();
+                await signInWithPopup(auth, provider);
+                showToast('Вы успешно вошли через Google!', 'success');
+                window.closeAccountModal();
+            } catch (e) {
+                showToast('Вход через всплывающее окно недоступен в превью — активен гостевой облачный профиль', 'info');
+            }
+        };
+
+        window.toggleTheme = function() {
+            const root = document.documentElement;
+            const isDark = root.classList.toggle('dark');
+            const icon = document.getElementById('theme-icon');
+            icon.className = isDark ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        };
+
+        function copyTextToClipboard(text, successMsg) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                showToast(successMsg, 'success');
+            } catch (err) {
+                showToast('Не удалось скопировать текст', 'error');
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+
+        window.copyDailySummary = function() {
+            const dayRec = getDayRecord(currentDate);
+            let totKcal = 0, totP = 0, totF = 0, totC = 0;
+            dayRec.items.forEach(i => { totKcal += i.kcal; totP += i.p; totF += i.f; totC += i.c; });
+
+            const lines = [
+                `📊 NutriCloud PRO — Отчёт за ${formatDateHuman(currentDate)} (${currentDate})`,
+                `🎯 Норма: ${targetMacros.kcal} ккал (Б: ${targetMacros.p}г | Ж: ${targetMacros.f}г | У: ${targetMacros.c}г)`,
+                `✅ Факт:  ${totKcal} ккал (Б: ${totP.toFixed(1)}г | Ж: ${totF.toFixed(1)}г | У: ${totC.toFixed(1)}г)`,
+                `💧 Вода:  ${dayRec.water || 0} / ${targetMacros.waterTarget || 2500} мл`,
+                `--- Приёмы пищи (${dayRec.items.length}) ---`
+            ];
+
+            dayRec.items.forEach((item, idx) => {
+                const mTitle = (mealLabels[item.meal] || mealLabels.breakfast).title;
+                lines.push(`${idx + 1}. [${mTitle}] ${item.name} (${item.weight}г) — ${item.kcal} ккал (Б:${item.p} Ж:${item.f} У:${item.c})`);
+            });
+
+            copyTextToClipboard(lines.join('\n'), 'Сводный отчёт за день скопирован в буфер обмена!');
+        };
+
+        window.exportData = function() {
+            const genderEl = document.querySelector('input[name="gender"]:checked');
+            const payload = {
+                app: "NutriCloud PRO",
+                version: 3,
+                exportedAt: new Date().toISOString(),
+                settings: {
+                    gender: genderEl ? genderEl.value : 'male',
+                    age: document.getElementById('age').value,
+                    height: document.getElementById('height').value,
+                    weight: document.getElementById('weight').value,
+                    bodyfat: document.getElementById('bodyfat').value,
+                    activity: document.getElementById('activity').value,
+                    goal: document.getElementById('goal').value,
+                    macroProfile: document.getElementById('macroProfile').value,
+                    customSliders
+                },
+                customFoods,
+                diaryByDate
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `nutricloud_backup_${currentDate}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Резервная копия JSON успешно сохранена', 'success');
+        };
+
+        window.importData = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.settings) applySettingsToDOM(data.settings);
+                    if (Array.isArray(data.customFoods)) {
+                        customFoods = data.customFoods;
+                        document.getElementById('custom-count').textContent = customFoods.length;
+                    }
+                    if (data.diaryByDate && typeof data.diaryByDate === 'object') {
+                        diaryByDate = data.diaryByDate;
+                    } else if (Array.isArray(data.diary)) {
+                        // Совместимость с предыдущей версией
+                        diaryByDate[currentDate] = { items: data.diary, water: data.waterIntake || 0 };
+                    }
+
+                    window.renderPresets();
+                    window.calculateTarget(true);
+                    pushDayToCloud(currentDate);
+                    showToast('Все данные успешно импортированы и синхронизированы!', 'success');
+                } catch (err) {
+                    showToast('Ошибка чтения файла JSON', 'error');
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        /* ============================================================================
+           11. СТАРТ ПРИЛОЖЕНИЯ
+           ============================================================================ */
+        window.onload = function() {
+            document.getElementById('current-date-picker').value = currentDate;
+            document.getElementById('diary-date-label').textContent = formatDateHuman(currentDate);
+            window.renderPresets();
+            window.calculateTarget(false);
+            window.updateAddPreview();
+            initCloud();
+        };
+    </script>
+</body>
+</html>
